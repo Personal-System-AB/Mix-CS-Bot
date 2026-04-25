@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, CommandInteraction } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { QueueService } from '../services/queueService.js';
 import { EmbedUtils } from '../utils/embeds.js';
 
@@ -7,14 +7,14 @@ export const queueStatusCommand = {
     .setName('fila-status')
     .setDescription('Mostra o status atual da fila'),
 
-  async execute(interaction: CommandInteraction) {
+  async execute(interaction: ChatInputCommandInteraction) {
     try {
       // Find queue in this guild and channel
       const { prisma } = await import('../db/prisma.js');
       
       const queue = await prisma.queue.findFirst({
         where: {
-          guildId: interaction.guildId!,
+          guildId: interaction.guildId ?? '',
           isActive: true,
         },
       });

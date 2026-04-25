@@ -4,15 +4,20 @@ import { commands } from './commands/index.js';
 
 config();
 
-const TOKEN = process.env.DISCORD_TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;
+const token = process.env.DISCORD_TOKEN;
+const clientId = process.env.CLIENT_ID;
+const guildId = process.env.GUILD_ID;
 
-if (!TOKEN || !CLIENT_ID) {
+if (!token || !clientId || !guildId) {
+  throw new Error('DISCORD_TOKEN, CLIENT_ID e GUILD_ID precisam estar no .env');
+}
+
+if (!token || !clientId) {
   console.error('❌ DISCORD_TOKEN ou CLIENT_ID não configurados');
   process.exit(1);
 }
 
-const rest = new REST().setToken(TOKEN);
+const rest = new REST().setToken(token);
 
 async function deployCommands() {
   try {
@@ -20,7 +25,7 @@ async function deployCommands() {
 
     const commandData = commands.map((cmd) => cmd.data.toJSON());
 
-    await rest.put(Routes.applicationCommands(CLIENT_ID), {
+    await rest.put(Routes.applicationCommands(clientId ?? ''), {
       body: commandData,
     });
 

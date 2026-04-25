@@ -1,5 +1,6 @@
 import { prisma } from '../db/prisma.js';
 import { IUser } from '../types/index.js';
+import { MatchService } from './matchService.js';
 
 export class QueueService {
   private static readonly QUEUE_SIZE = 10;
@@ -13,17 +14,35 @@ export class QueueService {
   }
 
   static async addPlayerToQueue(queueId: string, userId: string, discordId: string) {
-    // Ensure user exists
     const user = await prisma.user.upsert({
       where: { discordId },
       update: {},
-      create: { discordId, elo: 1000 },
+      create: {
+        discordId,
+        elo: 1,
+      },
     });
 
-    // Add to queue
     const entry = await prisma.queueEntry.create({
-      data: { queueId, userId: user.id },
+      data: {
+        queueId,
+        userId: user.id,
+      },
     });
+
+    const count = await this.getQueueCount(queueId);
+
+    if (count >= this.QUEUE_SIZE) {
+      const queue = await prisma.queue.findUnique({
+        where: { id: queueId },
+      });
+
+      if (!queue) return;
+
+      const players = await this.getQueuePlayers(queueId);
+
+      await MatchService.createMatch(queueId, queue.guildId, players);
+    }
 
     return entry;
   }
@@ -43,8 +62,7 @@ export class QueueService {
 
     return entries.map((entry) => ({
       discordId: entry.user.discordId,
-      steamUrl: entry.user.steamUrl || undefined,
-      faceitNick: entry.user.faceitNick || undefined,
+      steamNick: entry.user.steamNick || undefined,
       elo: entry.user.elo,
       wins: entry.user.wins,
       losses: entry.user.losses,
@@ -52,18 +70,23 @@ export class QueueService {
   }
 
   static async getQueueCount(queueId: string): Promise<number> {
-    return prisma.queueEntry.count({ where: { queueId } });
+    return prisma.queueEntry.count({
+      where: { queueId },
+    });
   }
 
   static async isPlayerInQueue(queueId: string, userId: string): Promise<boolean> {
     const entry = await prisma.queueEntry.findFirst({
       where: { queueId, userId },
     });
+
     return !!entry;
   }
 
   static async clearQueue(queueId: string) {
-    return prisma.queueEntry.deleteMany({ where: { queueId } });
+    return prisma.queueEntry.deleteMany({
+      where: { queueId },
+    });
   }
 
   static async updateQueueMessageId(queueId: string, messageId: string) {

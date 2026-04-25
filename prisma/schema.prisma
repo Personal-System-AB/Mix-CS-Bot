@@ -13,9 +13,8 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   discordId String   @unique
-  steamUrl  String?
-  faceitNick String?
-  elo       Int      @default(1000)
+  steamNick String?
+  elo       Int      @default(1)
   wins      Int      @default(0)
   losses    Int      @default(0)
   createdAt DateTime @default(now())
@@ -41,10 +40,10 @@ model Queue {
 }
 
 model QueueEntry {
-  id        String   @id @default(cuid())
-  queueId   String
-  userId    String
-  joinedAt  DateTime @default(now())
+  id       String   @id @default(cuid())
+  queueId  String
+  userId   String
+  joinedAt DateTime @default(now())
 
   queue Queue @relation(fields: [queueId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -53,18 +52,18 @@ model QueueEntry {
 }
 
 model Match {
-  id        String   @id @default(cuid())
-  queueId   String
-  guildId   String
-  mapPool   String? // maps separadas por vírgula
+  id         String   @id @default(cuid())
+  queueId    String
+  guildId    String
+  mapPool    String? // maps separadas por vírgula
   currentMap String?
   sideChoice String? // CT ou TR
-  status    String  @default("lobby") // lobby, veto, live, finished
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status     String   @default("lobby") // lobby, veto, live, finished
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  queue Queue @relation(fields: [queueId], references: [id], onDelete: Cascade)
-  teams MatchTeam[]
+  queue    Queue       @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  teams    MatchTeam[]
   vetoBans VetoBan[]
 }
 
@@ -81,11 +80,11 @@ model MatchTeam {
 }
 
 model VetoBan {
-  id      String @id @default(cuid())
-  matchId String
-  map     String
+  id       String @id @default(cuid())
+  matchId  String
+  map      String
   bannedBy String // "Team A" ou "Team B"
-  order   Int
+  order    Int
 
   match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
 
@@ -93,7 +92,7 @@ model VetoBan {
 }
 
 model MapPool {
-  id      String @id @default(cuid())
+  id      String   @id @default(cuid())
   guildId String
   map     String
   addedAt DateTime @default(now())

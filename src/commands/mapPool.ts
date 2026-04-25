@@ -45,7 +45,7 @@ export const mapPoolCommand = {
     }
 
     try {
-      const guildId = interaction.guildId!;
+      const guildId = interaction.guildId ?? '';
 
       if (subcommand === 'add') {
         const map = interaction.options.getString('mapa', true);

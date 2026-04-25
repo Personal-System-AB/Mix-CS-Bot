@@ -1,6 +1,6 @@
 import {
   Interaction,
-  CommandInteraction,
+  ChatInputCommandInteraction,
   ButtonInteraction,
   StringSelectMenuInteraction,
   ChannelType,
@@ -18,7 +18,7 @@ export const interactionCreateEvent = {
     try {
       // Handle slash commands
       if (interaction.isChatInputCommand()) {
-        await handleSlashCommand(interaction as CommandInteraction);
+        await handleSlashCommand(interaction as ChatInputCommandInteraction);
       }
       // Handle button interactions
       else if (interaction.isButton()) {
@@ -34,13 +34,13 @@ export const interactionCreateEvent = {
         await interaction.reply({
           content: '❌ Ocorreu um erro ao processar sua interação. Tente novamente.',
           ephemeral: true,
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
   },
 };
 
-async function handleSlashCommand(interaction: CommandInteraction) {
+async function handleSlashCommand(interaction: ChatInputCommandInteraction) {
   const command = commands.find((cmd) => cmd.data.name === interaction.commandName);
 
   if (!command) {
@@ -80,14 +80,17 @@ async function handleJoinQueue(interaction: ButtonInteraction) {
   try {
     const queue = await prisma.queue.findFirst({
       where: {
-        guildId: interaction.guildId!,
-        channelId: interaction.channelId,
+        guildId: interaction.guildId ?? '',
+        channelId: interaction.channelId ?? '',
         isActive: true,
       },
     });
 
     if (!queue) {
       await interaction.editReply('❌ Nenhuma fila ativa neste canal.');
+      setTimeout(() => {
+        interaction.deleteReply().catch(() => { });
+      }, 5000);
       return;
     }
 
@@ -98,6 +101,9 @@ async function handleJoinQueue(interaction: ButtonInteraction) {
 
     if (isInQueue) {
       await interaction.editReply('⚠️ Você já está na fila!');
+      setTimeout(() => {
+        interaction.deleteReply().catch(() => { });
+      }, 5000);
       return;
     }
 
@@ -106,6 +112,9 @@ async function handleJoinQueue(interaction: ButtonInteraction) {
       await interaction.editReply(
         '❌ Você precisa criar um perfil antes! Use `/perfil` para começar.'
       );
+      setTimeout(() => {
+        interaction.deleteReply().catch(() => { });
+      }, 5000);
       return;
     }
 
@@ -132,6 +141,9 @@ async function handleJoinQueue(interaction: ButtonInteraction) {
     }
 
     await interaction.editReply(`✅ Você entrou na fila! (${count}/${maxSize})`);
+    setTimeout(() => {
+      interaction.deleteReply().catch(() => { });
+    }, 500000);
 
     // Check if queue is full
     if (count === maxSize) {
@@ -140,6 +152,9 @@ async function handleJoinQueue(interaction: ButtonInteraction) {
   } catch (error) {
     console.error('Error joining queue:', error);
     await interaction.editReply('❌ Erro ao entrar na fila. Tente novamente.');
+    setTimeout(() => {
+      interaction.deleteReply().catch(() => { });
+    }, 5000);
   }
 }
 
@@ -149,14 +164,17 @@ async function handleLeaveQueue(interaction: ButtonInteraction) {
   try {
     const queue = await prisma.queue.findFirst({
       where: {
-        guildId: interaction.guildId!,
-        channelId: interaction.channelId,
+        guildId: interaction.guildId ?? '',
+        channelId: interaction.channelId ?? '',
         isActive: true,
       },
     });
 
     if (!queue) {
       await interaction.editReply('❌ Nenhuma fila ativa neste canal.');
+      setTimeout(() => {
+        interaction.deleteReply().catch(() => { });
+      }, 5000);
       return;
     }
 
@@ -165,12 +183,18 @@ async function handleLeaveQueue(interaction: ButtonInteraction) {
 
     if (!user) {
       await interaction.editReply('❌ Você não está na fila.');
+      setTimeout(() => {
+        interaction.deleteReply().catch(() => { });
+      }, 5000);
       return;
     }
 
     const isInQueue = await QueueService.isPlayerInQueue(queue.id, user.id);
     if (!isInQueue) {
       await interaction.editReply('⚠️ Você não está na fila!');
+      setTimeout(() => {
+        interaction.deleteReply().catch(() => { });
+      }, 5000);
       return;
     }
 
@@ -197,6 +221,9 @@ async function handleLeaveQueue(interaction: ButtonInteraction) {
     }
 
     await interaction.editReply(`✅ Você saiu da fila. (${count}/${maxSize})`);
+    setTimeout(() => {
+      interaction.deleteReply().catch(() => { });
+    }, 5000);
   } catch (error) {
     console.error('Error leaving queue:', error);
     await interaction.editReply('❌ Erro ao sair da fila. Tente novamente.');
@@ -209,7 +236,7 @@ async function createMatchFromQueue(
   players: any[]
 ) {
   try {
-    const match = await MatchService.createMatch(queue.id, interaction.guildId!, players);
+    const match = await MatchService.createMatch(queue.id, interaction.guildId ?? '', players);
 
     // Clear queue
     await QueueService.clearQueue(queue.id);
@@ -227,9 +254,11 @@ async function createMatchFromQueue(
     // Send match lobby message
     const channel = interaction.channel;
     if (channel && channel.isTextBased()) {
-      const matchMessage = await channel.send({
-        embeds: [lobbyEmbed],
-      });
+      if (channel && channel.isTextBased() && 'send' in channel) {
+        const matchMessage = await channel.send({
+          embeds: [lobbyEmbed],
+        });
+      }
 
       // Start veto process
       setTimeout(async () => {
@@ -246,9 +275,11 @@ async function startMapVeto(interaction: ButtonInteraction, match: any) {
     const maps = await VetoService.getMapPool(match.guildId);
 
     if (maps.length === 0) {
-      await interaction.channel?.send(
-        '⚠️ Nenhum mapa configurado! Configure com `/map-pool add`'
-      );
+      if (interaction.channel && interaction.channel.isTextBased() && 'send' in interaction.channel) {
+        await interaction.channel?.send(
+          '⚠️ Nenhum mapa configurado! Configure com `/map-pool add`'
+        );
+      }
       return;
     }
 
@@ -257,10 +288,12 @@ async function startMapVeto(interaction: ButtonInteraction, match: any) {
 
     const channel = interaction.channel;
     if (channel && channel.isTextBased()) {
-      await channel.send({
-        embeds: [vetoEmbed],
-        components: [selectRow],
-      });
+      if (channel && channel.isTextBased() && 'send' in channel) {
+        await channel.send({
+          embeds: [vetoEmbed],
+          components: [selectRow],
+        });
+      }
     }
 
     // Update match status to veto
@@ -302,10 +335,12 @@ async function handleMapVeto(interaction: StringSelectMenuInteraction) {
 
       const channel = interaction.channel;
       if (channel && channel.isTextBased()) {
-        await channel.send({
-          embeds: [sidePickEmbed],
-          components: [sidePickRow],
-        });
+        if (channel && channel.isTextBased() && 'send' in channel) {
+          await channel.send({
+            embeds: [sidePickEmbed],
+            components: [sidePickRow],
+          });
+        }
       }
 
       await interaction.editReply(`✅ Mapa **${map}** banido por **${vetoOrder.team}**!`);
@@ -317,10 +352,12 @@ async function handleMapVeto(interaction: StringSelectMenuInteraction) {
 
       const channel = interaction.channel;
       if (channel && channel.isTextBased()) {
-        await channel.send({
-          embeds: [vetoEmbed],
-          components: [selectRow],
-        });
+        if (channel && channel.isTextBased() && 'send' in channel) {
+          await channel.send({
+            embeds: [vetoEmbed],
+            components: [selectRow],
+          });
+        }
       }
 
       await interaction.editReply(`✅ Mapa **${map}** banido por **${vetoOrder.team}**!`);
@@ -354,9 +391,11 @@ async function handleSidePick(interaction: ButtonInteraction) {
 
     const channel = interaction.channel;
     if (channel && channel.isTextBased()) {
-      await channel.send({
-        embeds: [readyEmbed],
-      });
+      if (channel && channel.isTextBased() && 'send' in channel) {
+        await channel.send({
+          embeds: [readyEmbed],
+        });
+      }
     }
 
     await interaction.editReply(`✅ Time A escolheu **${side}**! Partida pronta!`);

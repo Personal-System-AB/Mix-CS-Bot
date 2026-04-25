@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, CommandInteraction } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { QueueService } from '../services/queueService.js';
 import { prisma } from '../db/prisma.js';
 
@@ -7,7 +7,7 @@ export const cancelQueueCommand = {
     .setName('cancelar-fila')
     .setDescription('Cancela a fila ativa (apenas admin)'),
 
-  async execute(interaction: CommandInteraction) {
+  async execute(interaction: ChatInputCommandInteraction) {
     // Check if user is admin
     if (!interaction.memberPermissions?.has('Administrator')) {
       await interaction.reply({
@@ -20,7 +20,7 @@ export const cancelQueueCommand = {
     try {
       const queue = await prisma.queue.findFirst({
         where: {
-          guildId: interaction.guildId!,
+          guildId: interaction.guildId ?? '',
           isActive: true,
         },
       });

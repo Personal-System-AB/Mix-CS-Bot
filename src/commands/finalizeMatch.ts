@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, CommandInteraction, ChannelType } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, ChannelType } from 'discord.js';
 import { prisma } from '../db/prisma.js';
 
 export const finalizeMatchCommand = {
@@ -12,7 +12,7 @@ export const finalizeMatchCommand = {
         .setRequired(true)
     ),
 
-  async execute(interaction: CommandInteraction) {
+  async execute(interaction: ChatInputCommandInteraction) {
     // Check if user is admin
     if (!interaction.memberPermissions?.has('Administrator')) {
       await interaction.reply({
@@ -42,7 +42,7 @@ export const finalizeMatchCommand = {
         const channels = await interaction.guild.channels.fetch();
         const voiceChannelsToDelete = channels.filter(
           (ch) =>
-            ch?.type === ChannelType.Voice &&
+            ch?.type === ChannelType.GuildVoice &&
             (ch?.name.includes(`Team A - Match`) || ch?.name.includes(`Team B - Match`)) &&
             ch?.name.includes(matchId.slice(0, 8))
         );

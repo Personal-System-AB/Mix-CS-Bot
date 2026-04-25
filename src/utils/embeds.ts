@@ -8,6 +8,14 @@ import {
 import { IUser, IMatch } from '../types/index.js';
 import { BalanceService } from '../services/balanceService.js';
 
+const rankNames: Record<number, string> = {
+  1: 'Silver',
+  2: 'Gold',
+  3: 'AK',
+  4: 'Aguia',
+  5: 'Global',
+};
+
 export class EmbedUtils {
   static createQueueEmbed(players: IUser[], maxSize: number = 10): EmbedBuilder {
     const embed = new EmbedBuilder()
@@ -18,7 +26,7 @@ export class EmbedUtils {
 
     const playerList = players.length > 0
       ? players
-          .map((p, idx) => `${idx + 1}. <@${p.discordId}> - **${p.elo}** ELO`)
+        .map((p, idx) => `${idx + 1}. <@${p.discordId}> - **${rankNames[p.elo] ?? 'Silver'}**`)
           .join('\n')
       : 'Nenhum jogador na fila';
 
@@ -49,8 +57,8 @@ export class EmbedUtils {
     const teamBElo = BalanceService.getTeamElo(match.teamB);
     const difference = Math.abs(teamAElo - teamBElo);
 
-    const teamAList = match.teamA.map((p) => `<@${p.discordId}> - ${p.elo} ELO`).join('\n');
-    const teamBList = match.teamB.map((p) => `<@${p.discordId}> - ${p.elo} ELO`).join('\n');
+    const teamAList = match.teamA.map((p) => `<@${p.discordId}> - **${rankNames[p.elo] ?? 'Silver'}**`).join('\n');
+    const teamBList = match.teamB.map((p) => `<@${p.discordId}> - **${rankNames[p.elo] ?? 'Silver'}**`).join('\n');
 
     const embed = new EmbedBuilder()
       .setColor('#FFD700')

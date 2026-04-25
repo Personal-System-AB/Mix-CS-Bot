@@ -24,10 +24,14 @@ const client = new Client({
 
 // Register events
 for (const event of events) {
-  if (event.once) {
-    client.once(event.name, (...args) => event.execute(...args));
+  if ('once' in event && event.once) {
+    client.once(event.name, (...args: any[]) => {
+      (event.execute as any)(...args);
+    });
   } else {
-    client.on(event.name, (...args) => event.execute(...args));
+    client.on(event.name, (...args: any[]) => {
+      (event.execute as any)(...args);
+    });
   }
 }
 

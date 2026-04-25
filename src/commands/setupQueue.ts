@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, CommandInteraction } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { QueueService } from '../services/queueService.js';
 import { EmbedUtils } from '../utils/embeds.js';
 
@@ -7,7 +7,7 @@ export const setupQueue = {
     .setName('setup-fila')
     .setDescription('Configura a fila de mix CS2 no canal'),
 
-  async execute(interaction: CommandInteraction) {
+  async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guild || !interaction.channel) {
       await interaction.reply({
         content: 'Este comando só funciona em servidores e canais.',
@@ -27,25 +27,27 @@ export const setupQueue = {
 
     try {
       // Create or get queue
-      const queue = await QueueService.getOrCreateQueue(interaction.guildId, interaction.channelId);
+      const queue = await QueueService.getOrCreateQueue(interaction.guildId ?? '', interaction.channelId);
 
       // Create embed and buttons
       const embed = EmbedUtils.createQueueEmbed([], QueueService.getQueueSize());
       const buttons = EmbedUtils.createQueueButtonRow();
 
       // Send message
-      const message = await interaction.channel.send({
-        embeds: [embed],
-        components: [buttons],
-      });
+      if (interaction.channel && interaction.channel.isTextBased() && 'send' in interaction.channel) {      
+        const message = await interaction.channel.send({
+          embeds: [embed],
+          components: [buttons],
+        });
+        // Update queue with message ID
+        await QueueService.updateQueueMessageId(queue.id, message.id);
 
-      // Update queue with message ID
-      await QueueService.updateQueueMessageId(queue.id, message.id);
+        await interaction.reply({
+          content: `✅ Fila configurada! Mensagem enviada em ${message.url}`,
+          ephemeral: true,
+        });
+      }
 
-      await interaction.reply({
-        content: `✅ Fila configurada! Mensagem enviada em ${message.url}`,
-        ephemeral: true,
-      });
     } catch (error) {
       console.error('Error setting up queue:', error);
       await interaction.reply({

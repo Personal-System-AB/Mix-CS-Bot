@@ -1,6 +1,17 @@
-import { SlashCommandBuilder, CommandInteraction } from 'discord.js';
+import {
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  EmbedBuilder,
+} from 'discord.js';
 import { prisma } from '../db/prisma.js';
-import { EmbedBuilder } from 'discord.js';
+
+const rankNames: Record<number, string> = {
+  1: 'Silver',
+  2: 'Gold',
+  3: 'AK',
+  4: 'Aguia',
+  5: 'Global',
+};
 
 export const profileCommand = {
   data: new SlashCommandBuilder()
@@ -8,69 +19,54 @@ export const profileCommand = {
     .setDescription('Visualize ou atualize seu perfil de jogador')
     .addStringOption((option) =>
       option
-        .setName('steam_url')
-        .setDescription('URL do seu perfil Steam')
+        .setName('steam_nick')
+        .setDescription('Seu nick da Steam')
         .setRequired(false)
-    )
-    .addStringOption((option) =>
-      option
-        .setName('faceit_nick')
-        .setDescription('Seu nickname no FACEIT')
-        .setRequired(false)
-    )
-    .addIntegerOption((option) =>
-      option
-        .setName('elo')
-        .setDescription('Seu ELO interno (1-3000)')
-        .setRequired(false)
-        .setMinValue(1)
-        .setMaxValue(3000)
     ),
 
-  async execute(interaction: CommandInteraction) {
+  async execute(interaction: ChatInputCommandInteraction) {
     const discordId = interaction.user.id;
-    const steamUrl = interaction.options.getString('steam_url');
-    const faceitNick = interaction.options.getString('faceit_nick');
-    const elo = interaction.options.getInteger('elo');
+    const steamNick = interaction.options.getString('steam_nick');
 
     try {
-      let user = await prisma.user.findUnique({ where: { discordId } });
+      let user = await prisma.user.findUnique({
+        where: { discordId },
+      });
 
       if (!user) {
-        // Create new user
         user = await prisma.user.create({
           data: {
             discordId,
-            steamUrl: steamUrl || undefined,
-            faceitNick: faceitNick || undefined,
-            elo: elo || 1000,
+            steamNick: steamNick || interaction.user.username,
+            elo: 1,
           },
         });
-      } else if (steamUrl || faceitNick || elo) {
-        // Update existing user
+      } else if (steamNick) {
         user = await prisma.user.update({
           where: { discordId },
           data: {
-            ...(steamUrl && { steamUrl }),
-            ...(faceitNick && { faceitNick }),
-            ...(elo && { elo }),
+            steamNick,
           },
         });
       }
 
-      // Create profile embed
       const embed = new EmbedBuilder()
         .setColor('#3498db')
         .setTitle(`📋 Perfil de ${interaction.user.username}`)
         .addFields(
           {
-            name: 'Discord ID',
+            name: 'Discord',
             value: `<@${user.discordId}>`,
             inline: true,
           },
           {
-            name: 'ELO',
-            value: `${user.elo}`,
+            name: 'Nick Steam',
+            value: user.steamNick || 'Não configurado',
+            inline: true,
+          },
+          {
+            name: 'Rank',
+            value: rankNames[user.elo] ?? 'Silver',
             inline: true,
           },
           {
@@ -82,20 +78,12 @@ export const profileCommand = {
             name: 'Derrotas',
             value: `${user.losses}`,
             inline: true,
-          },
-          {
-            name: 'Steam URL',
-            value: user.steamUrl ? `[Clique aqui](${user.steamUrl})` : 'Não configurado',
-            inline: true,
-          },
-          {
-            name: 'FACEIT Nick',
-            value: user.faceitNick || 'Não configurado',
-            inline: true,
           }
         )
         .setTimestamp()
-        .setFooter({ text: `Atualizado em ${new Date().toLocaleString('pt-BR')}` });
+        .setFooter({
+          text: `Atualizado em ${new Date().toLocaleString('pt-BR')}`,
+        });
 
       await interaction.reply({
         embeds: [embed],
@@ -103,6 +91,7 @@ export const profileCommand = {
       });
     } catch (error) {
       console.error('Error in profile command:', error);
+
       await interaction.reply({
         content: '❌ Erro ao gerenciar o perfil. Tente novamente.',
         ephemeral: true,

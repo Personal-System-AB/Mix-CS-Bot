@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, CommandInteraction } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { MatchService } from '../services/matchService.js';
 import { prisma } from '../db/prisma.js';
 
@@ -23,7 +23,7 @@ export const resultCommand = {
         )
     ),
 
-  async execute(interaction: CommandInteraction) {
+  async execute(interaction: ChatInputCommandInteraction) {
     // Check if user is admin
     if (!interaction.memberPermissions?.has('Administrator')) {
       await interaction.reply({

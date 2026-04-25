@@ -7,7 +7,7 @@
 Crie `src/commands/stats.ts`:
 
 ```typescript
-import { SlashCommandBuilder, CommandInteraction, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { prisma } from '../db/prisma.js';
 
 export const statsCommand = {
@@ -21,7 +21,7 @@ export const statsCommand = {
         .setRequired(false)
     ),
 
-  async execute(interaction: CommandInteraction) {
+  async execute(interaction: ChatInputCommandInteraction) {
     const targetUser = interaction.options.getUser('jogador') || interaction.user;
 
     try {

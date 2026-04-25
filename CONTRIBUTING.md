@@ -18,7 +18,7 @@ src/
 ### 1. Criar arquivo em `src/commands/`
 
 ```typescript
-import { SlashCommandBuilder, CommandInteraction } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 
 export const meuComando = {
   data: new SlashCommandBuilder()
@@ -31,7 +31,7 @@ export const meuComando = {
         .setRequired(true)
     ),
 
-  async execute(interaction: CommandInteraction) {
+  async execute(interaction: ChatInputCommandInteraction) {
     const valor = interaction.options.getString('opcao', true);
     
     await interaction.reply({
