@@ -38,7 +38,7 @@ export class VetoService {
       .filter((m) => m.category === 'rotation')
       .map((m) => m.map);
 
-    const randomRotationMaps = seededShuffle(rotationMaps, matchId).slice(0, 4);
+    const randomRotationMaps = seededShuffle(rotationMaps, matchId).slice(0, 3);
 
     return [...fixedMaps, ...randomRotationMaps];
   }
