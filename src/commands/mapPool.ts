@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, CommandInteraction, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { VetoService } from '../services/vetoService.js';
 
 export const mapPoolCommand = {
@@ -33,7 +33,7 @@ export const mapPoolCommand = {
         .setDescription('Lista todos os mapas do pool')
     ),
 
-  async execute(interaction: CommandInteraction) {
+  async execute(interaction: ChatInputCommandInteraction) {
     // Check if user is admin (except for list)
     const subcommand = interaction.options.getSubcommand();
     if (subcommand !== 'list' && !interaction.memberPermissions?.has('Administrator')) {
