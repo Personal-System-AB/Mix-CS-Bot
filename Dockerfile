@@ -1,8 +1,7 @@
-FROM node:22
+FROM node:22-alpine
 
 WORKDIR /app
 
-# 👇 necessário pro Prisma funcionar
 RUN apk add --no-cache openssl
 
 COPY package*.json ./
