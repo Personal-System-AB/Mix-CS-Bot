@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  cs2-mix-bot:
+    build: .
+    container_name: cs2-mix-bot
+    restart: unless-stopped
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - CLIENT_ID=${CLIENT_ID}
+      - DATABASE_URL=file:./dev.db
+      - NODE_ENV=production
+    volumes:
+      - ./data:/app/data
+      - ./dev.db:/app/dev.db
+    networks:
+      - cs2-network
+
+networks:
+  cs2-network:
+    driver: bridge

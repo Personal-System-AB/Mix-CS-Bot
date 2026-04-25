@@ -1,0 +1,30 @@
+{
+  "name": "cs2-mix-bot",
+  "version": "1.0.0",
+  "description": "Discord bot para organizar mixes 5v5 de Counter-Strike 2",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio",
+    "deploy:commands": "node dist/deploy-commands.js"
+  },
+  "keywords": ["discord", "bot", "counter-strike", "mix", "matchmaking"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/client": "^5.7.0",
+    "discord.js": "^14.14.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "prisma": "^5.7.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
