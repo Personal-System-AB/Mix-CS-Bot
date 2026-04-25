@@ -14,7 +14,6 @@ COPY tsconfig.json ./
 
 RUN npm run build
 RUN npx prisma generate
-RUN npx prisma db push
 RUN npm prune --omit=dev
 
-CMD ["npm", "start"]
+CMD ["sh", "-c", "npx prisma db push && npm start"]
