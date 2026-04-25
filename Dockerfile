@@ -1,26 +1,20 @@
-FROM node:22-alpine
+FROM node:22
 
 WORKDIR /app
 
-# Copiar package files
+# 👇 necessário pro Prisma funcionar
+RUN apk add --no-cache openssl
+
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Instalar dependências
-RUN npm ci --only=production
+RUN npm ci
 
-# Copiar código-fonte
 COPY src ./src
 COPY tsconfig.json ./
 
-# Build TypeScript
 RUN npm run build
-
-# Generate Prisma client
 RUN npx prisma generate
+RUN npm prune --omit=dev
 
-# Remover src para reduzir tamanho da imagem
-RUN rm -rf src
-
-# Comando padrão
-CMD ["node", "dist/index.js"]
+CMD ["npm", "start"]
