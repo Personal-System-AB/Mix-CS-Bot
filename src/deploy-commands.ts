@@ -12,12 +12,7 @@ if (!token || !clientId || !guildId) {
   throw new Error('DISCORD_TOKEN, CLIENT_ID e GUILD_ID precisam estar no .env');
 }
 
-if (!token || !clientId) {
-  console.error('❌ DISCORD_TOKEN ou CLIENT_ID não configurados');
-  process.exit(1);
-}
-
-const rest = new REST().setToken(token);
+const rest = new REST({ version: '10' }).setToken(token);
 
 async function deployCommands() {
   try {
@@ -25,7 +20,7 @@ async function deployCommands() {
 
     const commandData = commands.map((cmd) => cmd.data.toJSON());
 
-    await rest.put(Routes.applicationCommands(clientId ?? ''), {
+    await rest.put(Routes.applicationGuildCommands(clientId ?? '', guildId ?? ''), {
       body: commandData,
     });
 

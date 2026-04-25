@@ -3,7 +3,6 @@ import {
   ChatInputCommandInteraction,
   ButtonInteraction,
   StringSelectMenuInteraction,
-  ChannelType,
 } from 'discord.js';
 import { commands } from '../commands/index.js';
 import { QueueService } from '../services/queueService.js';
@@ -16,29 +15,76 @@ export const interactionCreateEvent = {
   name: 'interactionCreate',
   async execute(interaction: Interaction) {
     try {
-      // Handle slash commands
       if (interaction.isChatInputCommand()) {
-        await handleSlashCommand(interaction as ChatInputCommandInteraction);
-      }
-      // Handle button interactions
-      else if (interaction.isButton()) {
-        await handleButton(interaction as ButtonInteraction);
-      }
-      // Handle select menu interactions
-      else if (interaction.isStringSelectMenu()) {
-        await handleSelectMenu(interaction as StringSelectMenuInteraction);
+        await handleSlashCommand(interaction);
+      } else if (interaction.isButton()) {
+        await handleButton(interaction);
+      } else if (interaction.isStringSelectMenu()) {
+        await handleSelectMenu(interaction);
       }
     } catch (error) {
       console.error('Error handling interaction:', error);
-      if (interaction.isRepliable() && !interaction.replied) {
+
+      if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
         await interaction.reply({
-          content: '❌ Ocorreu um erro ao processar sua interação. Tente novamente.',
+          content: '❌ Ocorreu um erro ao processar sua interação.',
           ephemeral: true,
         }).catch(() => { });
       }
     }
   },
 };
+
+async function tempReply(
+  interaction: ButtonInteraction | StringSelectMenuInteraction,
+  content: string
+) {
+  await interaction.reply({
+    content,
+    ephemeral: true,
+  });
+
+  setTimeout(() => {
+    interaction.deleteReply().catch(() => { });
+  }, 4000);
+}
+
+async function getPanelMessage(interaction: ButtonInteraction | StringSelectMenuInteraction, messageId?: string | null) {
+  if (!messageId) return null;
+  if (!interaction.channel?.isTextBased()) return null;
+
+  return interaction.channel.messages.fetch(messageId).catch(() => null);
+}
+
+async function resetPanelToQueue(
+  interaction: ButtonInteraction | StringSelectMenuInteraction,
+  messageId: string
+) {
+  const queue = await QueueService.getOrCreateQueue(
+    interaction.guildId!,
+    interaction.channelId
+  );
+
+  await QueueService.clearQueue(queue.id);
+
+  await prisma.queue.update({
+    where: { id: queue.id },
+    data: {
+      isActive: true,
+      messageId,
+    },
+  });
+
+  const queueEmbed = EmbedUtils.createQueueEmbed([], QueueService.getQueueSize());
+  const queueButtons = EmbedUtils.createQueueButtonRow();
+
+  const panelMessage = await getPanelMessage(interaction, messageId);
+
+  await panelMessage?.edit({
+    embeds: [queueEmbed],
+    components: [queueButtons],
+  });
+}
 
 async function handleSlashCommand(interaction: ChatInputCommandInteraction) {
   const command = commands.find((cmd) => cmd.data.name === interaction.commandName);
@@ -63,13 +109,15 @@ async function handleButton(interaction: ButtonInteraction) {
     await handleLeaveQueue(interaction);
   } else if (customId.startsWith('side_pick:')) {
     await handleSidePick(interaction);
+  } 
+  // 🔥 NOVO
+  else if (customId === 'reset_queue') {
+    await handleResetQueue(interaction);
   }
 }
 
 async function handleSelectMenu(interaction: StringSelectMenuInteraction) {
-  const customId = interaction.customId;
-
-  if (customId === 'map_veto') {
+  if (interaction.customId === 'map_veto') {
     await handleMapVeto(interaction);
   }
 }
@@ -88,73 +136,53 @@ async function handleJoinQueue(interaction: ButtonInteraction) {
 
     if (!queue) {
       await interaction.editReply('❌ Nenhuma fila ativa neste canal.');
-      setTimeout(() => {
-        interaction.deleteReply().catch(() => { });
-      }, 5000);
+      setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
       return;
     }
 
-    // Check if user already in queue
-    const userId = interaction.user.id;
-    const user = await prisma.user.findUnique({ where: { discordId: userId } });
-    const isInQueue = user ? await QueueService.isPlayerInQueue(queue.id, user.id) : false;
+    const discordId = interaction.user.id;
+    const user = await prisma.user.findUnique({ where: { discordId } });
+
+    if (!user) {
+      await interaction.editReply('❌ Você precisa criar um perfil antes! Use `/perfil`.');
+      setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
+      return;
+    }
+
+    const isInQueue = await QueueService.isPlayerInQueue(queue.id, user.id);
 
     if (isInQueue) {
       await interaction.editReply('⚠️ Você já está na fila!');
-      setTimeout(() => {
-        interaction.deleteReply().catch(() => { });
-      }, 5000);
+      setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
       return;
     }
 
-    // Check if user has profile
-    if (!user) {
-      await interaction.editReply(
-        '❌ Você precisa criar um perfil antes! Use `/perfil` para começar.'
-      );
-      setTimeout(() => {
-        interaction.deleteReply().catch(() => { });
-      }, 5000);
-      return;
-    }
+    await QueueService.addPlayerToQueue(queue.id, user.id, discordId);
 
-    // Add to queue
-    await QueueService.addPlayerToQueue(queue.id, user.id, userId);
     const players = await QueueService.getQueuePlayers(queue.id);
     const count = await QueueService.getQueueCount(queue.id);
     const maxSize = QueueService.getQueueSize();
 
-    // Update embed
     const embed = EmbedUtils.createQueueEmbed(players, maxSize);
     const buttons = EmbedUtils.createQueueButtonRow();
 
-    if (queue.messageId) {
-      try {
-        const channel = interaction.channel;
-        if (channel && channel.isTextBased()) {
-          const message = await channel.messages.fetch(queue.messageId);
-          await message.edit({ embeds: [embed], components: [buttons] });
-        }
-      } catch (error) {
-        console.error('Error updating queue message:', error);
-      }
-    }
+    const panelMessage = await getPanelMessage(interaction, queue.messageId);
+
+    await panelMessage?.edit({
+      embeds: [embed],
+      components: [buttons],
+    });
 
     await interaction.editReply(`✅ Você entrou na fila! (${count}/${maxSize})`);
-    setTimeout(() => {
-      interaction.deleteReply().catch(() => { });
-    }, 500000);
+    setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
 
-    // Check if queue is full
     if (count === maxSize) {
       await createMatchFromQueue(interaction, queue, players);
     }
   } catch (error) {
     console.error('Error joining queue:', error);
-    await interaction.editReply('❌ Erro ao entrar na fila. Tente novamente.');
-    setTimeout(() => {
-      interaction.deleteReply().catch(() => { });
-    }, 5000);
+    await interaction.editReply('❌ Erro ao entrar na fila.');
+    setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
   }
 }
 
@@ -172,61 +200,50 @@ async function handleLeaveQueue(interaction: ButtonInteraction) {
 
     if (!queue) {
       await interaction.editReply('❌ Nenhuma fila ativa neste canal.');
-      setTimeout(() => {
-        interaction.deleteReply().catch(() => { });
-      }, 5000);
+      setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
       return;
     }
 
-    const userId = interaction.user.id;
-    const user = await prisma.user.findUnique({ where: { discordId: userId } });
+    const user = await prisma.user.findUnique({
+      where: { discordId: interaction.user.id },
+    });
 
     if (!user) {
       await interaction.editReply('❌ Você não está na fila.');
-      setTimeout(() => {
-        interaction.deleteReply().catch(() => { });
-      }, 5000);
+      setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
       return;
     }
 
     const isInQueue = await QueueService.isPlayerInQueue(queue.id, user.id);
+
     if (!isInQueue) {
       await interaction.editReply('⚠️ Você não está na fila!');
-      setTimeout(() => {
-        interaction.deleteReply().catch(() => { });
-      }, 5000);
+      setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
       return;
     }
 
-    // Remove from queue
     await QueueService.removePlayerFromQueue(queue.id, user.id);
+
     const players = await QueueService.getQueuePlayers(queue.id);
     const count = await QueueService.getQueueCount(queue.id);
     const maxSize = QueueService.getQueueSize();
 
-    // Update embed
     const embed = EmbedUtils.createQueueEmbed(players, maxSize);
     const buttons = EmbedUtils.createQueueButtonRow();
 
-    if (queue.messageId) {
-      try {
-        const channel = interaction.channel;
-        if (channel && channel.isTextBased()) {
-          const message = await channel.messages.fetch(queue.messageId);
-          await message.edit({ embeds: [embed], components: [buttons] });
-        }
-      } catch (error) {
-        console.error('Error updating queue message:', error);
-      }
-    }
+    const panelMessage = await getPanelMessage(interaction, queue.messageId);
+
+    await panelMessage?.edit({
+      embeds: [embed],
+      components: [buttons],
+    });
 
     await interaction.editReply(`✅ Você saiu da fila. (${count}/${maxSize})`);
-    setTimeout(() => {
-      interaction.deleteReply().catch(() => { });
-    }, 5000);
+    setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
   } catch (error) {
     console.error('Error leaving queue:', error);
-    await interaction.editReply('❌ Erro ao sair da fila. Tente novamente.');
+    await interaction.editReply('❌ Erro ao sair da fila.');
+    setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
   }
 }
 
@@ -238,65 +255,47 @@ async function createMatchFromQueue(
   try {
     const match = await MatchService.createMatch(queue.id, interaction.guildId ?? '', players);
 
-    // Clear queue
     await QueueService.clearQueue(queue.id);
 
-    // Deactivate queue
     await prisma.queue.update({
       where: { id: queue.id },
       data: { isActive: false },
     });
 
-    // Create lobby embed
     const lobbyEmbed = EmbedUtils.createMatchLobbyEmbed(match);
-    const buttonRow = EmbedUtils.createQueueButtonRow();
+    const panelMessage = await getPanelMessage(interaction, queue.messageId);
 
-    // Send match lobby message
-    const channel = interaction.channel;
-    if (channel && channel.isTextBased()) {
-      if (channel && channel.isTextBased() && 'send' in channel) {
-        const matchMessage = await channel.send({
-          embeds: [lobbyEmbed],
-        });
-      }
+    await panelMessage?.edit({
+      embeds: [lobbyEmbed],
+      components: [],
+    });
 
-      // Start veto process
-      setTimeout(async () => {
-        await startMapVeto(interaction, match);
-      }, 2000);
-    }
+    setTimeout(async () => {
+      await startMapVeto(interaction, match, queue.messageId);
+    }, 1500);
   } catch (error) {
     console.error('Error creating match:', error);
   }
 }
 
-async function startMapVeto(interaction: ButtonInteraction, match: any) {
+async function startMapVeto(
+  interaction: ButtonInteraction,
+  match: any,
+  messageId?: string | null
+) {
   try {
     const maps = await VetoService.getMapPool(match.guildId);
-
-    if (maps.length === 0) {
-      if (interaction.channel && interaction.channel.isTextBased() && 'send' in interaction.channel) {
-        await interaction.channel?.send(
-          '⚠️ Nenhum mapa configurado! Configure com `/map-pool add`'
-        );
-      }
-      return;
-    }
 
     const vetoEmbed = EmbedUtils.createVetoEmbed(match, maps, 'Team A');
     const selectRow = EmbedUtils.createVetoMapSelectRow(maps, match.id);
 
-    const channel = interaction.channel;
-    if (channel && channel.isTextBased()) {
-      if (channel && channel.isTextBased() && 'send' in channel) {
-        await channel.send({
-          embeds: [vetoEmbed],
-          components: [selectRow],
-        });
-      }
-    }
+    const panelMessage = await getPanelMessage(interaction, messageId);
 
-    // Update match status to veto
+    await panelMessage?.edit({
+      embeds: [vetoEmbed],
+      components: [selectRow],
+    });
+
     await MatchService.updateMatchStatus(match.id, 'veto');
   } catch (error) {
     console.error('Error starting map veto:', error);
@@ -304,103 +303,145 @@ async function startMapVeto(interaction: ButtonInteraction, match: any) {
 }
 
 async function handleMapVeto(interaction: StringSelectMenuInteraction) {
-  await interaction.deferReply({ ephemeral: true });
-
   try {
     const selectedValue = interaction.values[0];
     const [, matchId, map] = selectedValue.split(':');
 
     const match = await MatchService.getMatch(matchId);
+
     if (!match) {
-      await interaction.editReply('❌ Partida não encontrada.');
+      await tempReply(interaction, '❌ Partida não encontrada.');
       return;
     }
 
     const bans = await VetoService.getVetoBans(matchId);
     const vetoOrder = VetoService.getVetoOrder(bans.length);
 
-    // Ban the map
+    const teamPlayers = vetoOrder.team === 'Team A' ? match.teamA : match.teamB;
+
+    const isPlayerFromTeam = teamPlayers.some(
+      (player) => player.discordId === interaction.user.id
+    );
+
+    const isDev = process.env.NODE_ENV === 'development';
+
+    if (!isPlayerFromTeam && !isDev) {
+      await tempReply(
+        interaction,
+        `❌ Apenas jogadores do **${vetoOrder.team}** podem banir agora.`
+      );
+      return;
+    }
+
     await VetoService.banMap(matchId, map, vetoOrder.team, bans.length);
 
     const remainingMaps = await VetoService.getRemainingMaps(match.guildId, matchId);
 
     if (remainingMaps.length === 1) {
-      // Only one map left, select it
       const selectedMap = remainingMaps[0];
+
       await MatchService.setMatchMap(matchId, selectedMap);
 
-      // Show side pick
       const sidePickEmbed = EmbedUtils.createSidePickEmbed(match, selectedMap);
       const sidePickRow = EmbedUtils.createSidePickButtonRow(matchId);
 
-      const channel = interaction.channel;
-      if (channel && channel.isTextBased()) {
-        if (channel && channel.isTextBased() && 'send' in channel) {
-          await channel.send({
-            embeds: [sidePickEmbed],
-            components: [sidePickRow],
-          });
-        }
-      }
+      await interaction.update({
+        embeds: [sidePickEmbed],
+        components: [sidePickRow],
+      });
 
-      await interaction.editReply(`✅ Mapa **${map}** banido por **${vetoOrder.team}**!`);
-    } else {
-      // Continue veto
-      const nextVeto = VetoService.getVetoOrder(bans.length + 1);
-      const vetoEmbed = EmbedUtils.createVetoEmbed(match, remainingMaps, nextVeto.team);
-      const selectRow = EmbedUtils.createVetoMapSelectRow(remainingMaps, matchId);
-
-      const channel = interaction.channel;
-      if (channel && channel.isTextBased()) {
-        if (channel && channel.isTextBased() && 'send' in channel) {
-          await channel.send({
-            embeds: [vetoEmbed],
-            components: [selectRow],
-          });
-        }
-      }
-
-      await interaction.editReply(`✅ Mapa **${map}** banido por **${vetoOrder.team}**!`);
+      return;
     }
+
+    const nextVeto = VetoService.getVetoOrder(bans.length + 1);
+    const vetoEmbed = EmbedUtils.createVetoEmbed(match, remainingMaps, nextVeto.team);
+    const selectRow = EmbedUtils.createVetoMapSelectRow(remainingMaps, matchId);
+
+    await interaction.update({
+      embeds: [vetoEmbed],
+      components: [selectRow],
+    });
   } catch (error) {
     console.error('Error handling map veto:', error);
-    await interaction.editReply('❌ Erro ao processar veto de mapa. Tente novamente.');
+
+    if (!interaction.replied && !interaction.deferred) {
+      await tempReply(interaction, '❌ Erro ao processar veto de mapa.');
+    }
+  }
+}
+
+async function handleResetQueue(interaction: ButtonInteraction) {
+  if (!interaction.memberPermissions?.has('Administrator')) {
+    await tempReply(interaction, '❌ Apenas admins podem reiniciar.');
+    return;
+  }
+
+  try {
+    await interaction.deferUpdate();
+
+    const queue = await QueueService.getOrCreateQueue(
+      interaction.guildId!,
+      interaction.channelId
+    );
+
+    await QueueService.clearQueue(queue.id);
+
+    await prisma.queue.update({
+      where: { id: queue.id },
+      data: {
+        isActive: true,
+        messageId: interaction.message.id,
+      },
+    });
+
+    const embed = EmbedUtils.createQueueEmbed([], QueueService.getQueueSize());
+    const buttons = EmbedUtils.createQueueButtonRow();
+
+    await interaction.message.edit({
+      embeds: [embed],
+      components: [buttons],
+    });
+
+  } catch (error) {
+    console.error(error);
   }
 }
 
 async function handleSidePick(interaction: ButtonInteraction) {
-  await interaction.deferReply({ ephemeral: true });
-
   try {
     const [, matchId, side] = interaction.customId.split(':');
 
     const match = await MatchService.getMatch(matchId);
     if (!match) {
-      await interaction.editReply('❌ Partida não encontrada.');
+      await tempReply(interaction, '❌ Partida não encontrada.');
+      return;
+    }
+
+    const isTeamA = match.teamA.some(
+      (p) => p.discordId === interaction.user.id
+    );
+
+    const isDev = process.env.NODE_ENV === 'development';
+
+    if (!isTeamA && !isDev) {
+      await tempReply(interaction, '❌ Apenas Team A escolhe lado.');
       return;
     }
 
     await MatchService.setMatchSide(matchId, side as 'CT' | 'TR');
 
-    // Get updated match
     const updatedMatch = await MatchService.getMatch(matchId);
     if (!updatedMatch) throw new Error('Match not found');
 
-    // Show ready embed
     const readyEmbed = EmbedUtils.createMatchReadyEmbed(updatedMatch);
 
-    const channel = interaction.channel;
-    if (channel && channel.isTextBased()) {
-      if (channel && channel.isTextBased() && 'send' in channel) {
-        await channel.send({
-          embeds: [readyEmbed],
-        });
-      }
-    }
+    await interaction.update({
+      embeds: [readyEmbed],
+      components: [EmbedUtils.createReadyMatchButtonRow()],
+    });
 
-    await interaction.editReply(`✅ Time A escolheu **${side}**! Partida pronta!`);
   } catch (error) {
-    console.error('Error handling side pick:', error);
-    await interaction.editReply('❌ Erro ao escolher lado. Tente novamente.');
+    console.error(error);
+    await tempReply(interaction, '❌ Erro ao escolher lado.');
   }
 }

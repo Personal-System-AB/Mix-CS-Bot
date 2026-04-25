@@ -1,5 +1,9 @@
 import { prisma } from '../db/prisma.js';
 
+function shuffle<T>(array: T[]): T[] {
+  return [...array].sort(() => Math.random() - 0.5);
+}
+
 export class VetoService {
   static async getMapPool(guildId: string): Promise<string[]> {
     const maps = await prisma.mapPool.findMany({
@@ -11,12 +15,26 @@ export class VetoService {
       return ['Mirage', 'Inferno', 'Nuke', 'Ancient', 'Anubis'];
     }
 
-    return maps.map((m) => m.map);
+    const fixedMaps = maps
+      .filter((m) => m.category === 'fixed')
+      .map((m) => m.map);
+
+    const rotationMaps = maps
+      .filter((m) => m.category === 'rotation')
+      .map((m) => m.map);
+
+    const randomRotationMaps = shuffle(rotationMaps).slice(0, 4);
+
+    return [...fixedMaps, ...randomRotationMaps];
   }
 
-  static async addMapToPool(guildId: string, map: string) {
+  static async addMapToPool(
+    guildId: string,
+    map: string,
+    category: 'fixed' | 'rotation' = 'fixed'
+  ) {
     return prisma.mapPool.create({
-      data: { guildId, map },
+      data: { guildId, map, category },
     });
   }
 
@@ -47,14 +65,15 @@ export class VetoService {
   static async getRemainingMaps(guildId: string, matchId: string): Promise<string[]> {
     const pool = await this.getMapPool(guildId);
     const bans = await this.getVetoBans(matchId);
-
     const bannedMaps = new Set(bans.map((b) => b.map));
 
     return pool.filter((map) => !bannedMaps.has(map));
   }
 
   static getVetoOrder(banCount: number): { team: 'Team A' | 'Team B' } {
-    const team = banCount % 2 === 0 ? 'Team A' : 'Team B';
+    const round = Math.floor(banCount / 3);
+    const team = round % 2 === 0 ? 'Team A' : 'Team B';
+
     return { team };
   }
 }

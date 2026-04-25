@@ -92,10 +92,11 @@ model VetoBan {
 }
 
 model MapPool {
-  id      String   @id @default(cuid())
-  guildId String
-  map     String
-  addedAt DateTime @default(now())
+  id        String   @id @default(cuid())
+  guildId   String
+  map       String
+  category  String   @default("fixed") // fixed ou rotation
+  createdAt DateTime @default(now())
 
   @@unique([guildId, map])
 }
