@@ -69,17 +69,21 @@ export class EmbedUtils {
       .setTimestamp();
   }
 
-  static createVetoEmbed(match: any, maps: string[], team: string) {
+  static createVetoEmbed(match: any, maps: string[], team: string, banCount = 0) {
     return new EmbedBuilder()
       .setColor('#e74c3c')
-      .setTitle(`🗺️ Veto de Mapas`)
-      .setDescription(`**${team}** escolhe um mapa para banir`)
-      .addFields({
-        name: 'Mapas Disponíveis',
-        value: maps.join(' • '),
-      })
-      .setTimestamp();
-  }
+    .setTitle('🗺️ Veto de Mapas')
+    .setDescription(
+      `**${team}** escolhe um mapa para banir\n\n` +
+      `**Mapas restantes:** ${maps.length}\n` +
+      `**Mapas banidos:** ${banCount}`
+    )
+    .addFields({
+      name: 'Mapas disponíveis',
+      value: maps.map((m, i) => `${i + 1}. ${m}`).join('\n'),
+    })
+     .setTimestamp();
+ }
 
   static createVetoMapSelectRow(maps: string[], matchId: string) {
     return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(

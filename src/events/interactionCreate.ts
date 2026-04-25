@@ -284,9 +284,9 @@ async function startMapVeto(
   messageId?: string | null
 ) {
   try {
-    const maps = await VetoService.getMapPool(match.guildId);
+    const maps = await VetoService.getMatchMapPool(match.guildId, match.id);
 
-    const vetoEmbed = EmbedUtils.createVetoEmbed(match, maps, 'Team A');
+    const vetoEmbed = EmbedUtils.createVetoEmbed(match, maps, 'Team A', 0)
     const selectRow = EmbedUtils.createVetoMapSelectRow(maps, match.id);
 
     const panelMessage = await getPanelMessage(interaction, messageId);
@@ -354,7 +354,7 @@ async function handleMapVeto(interaction: StringSelectMenuInteraction) {
     }
 
     const nextVeto = VetoService.getVetoOrder(bans.length + 1);
-    const vetoEmbed = EmbedUtils.createVetoEmbed(match, remainingMaps, nextVeto.team);
+    const vetoEmbed = EmbedUtils.createVetoEmbed(match, remainingMaps, nextVeto.team, bans.length + 1)
     const selectRow = EmbedUtils.createVetoMapSelectRow(remainingMaps, matchId);
 
     await interaction.update({

@@ -8,6 +8,7 @@ import { finalizeMatchCommand } from './finalizeMatch.js';
 import { resultCommand } from './result.js';
 import { testQueueCommand } from './testQueue.js';
 import { clearMessagesCommand } from './clearMessages.js';
+import { clearMapsCommand } from './clearMaps.js';
 
 export const commands = [
   setupQueue,
@@ -20,4 +21,5 @@ export const commands = [
   resultCommand,
   testQueueCommand,
   clearMessagesCommand,
+  clearMapsCommand,
 ];

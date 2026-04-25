@@ -63,7 +63,7 @@ export class MatchService {
     ]);
 
     // 🔥 INICIAR VETO AUTOMATICO
-    const maps = await VetoService.getMapPool(guildId);
+    const maps = await VetoService.getMatchMapPool(match.guildId, match.id);
 
     // Se tiver só 1 mapa → já define
     if (maps.length === 1) {

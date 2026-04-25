@@ -1,4 +1,9 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
+import {
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  EmbedBuilder,
+} from 'discord.js';
+import { prisma } from '../db/prisma.js';
 import { VetoService } from '../services/vetoService.js';
 
 export const mapPoolCommand = {
@@ -10,10 +15,17 @@ export const mapPoolCommand = {
         .setName('add')
         .setDescription('Adiciona um mapa ao pool')
         .addStringOption((option) =>
+          option.setName('mapa').setDescription('Nome do mapa').setRequired(true)
+        )
+        .addStringOption((option) =>
           option
-            .setName('mapa')
-            .setDescription('Nome do mapa (ex: dust2, inferno, mirage)')
+            .setName('tipo')
+            .setDescription('Tipo do mapa')
             .setRequired(true)
+            .addChoices(
+              { name: 'Fixo', value: 'fixed' },
+              { name: 'Rotação', value: 'rotation' }
+            )
         )
     )
     .addSubcommand((subcommand) =>
@@ -21,21 +33,16 @@ export const mapPoolCommand = {
         .setName('remove')
         .setDescription('Remove um mapa do pool')
         .addStringOption((option) =>
-          option
-            .setName('mapa')
-            .setDescription('Nome do mapa a remover')
-            .setRequired(true)
+          option.setName('mapa').setDescription('Nome do mapa').setRequired(true)
         )
     )
     .addSubcommand((subcommand) =>
-      subcommand
-        .setName('list')
-        .setDescription('Lista todos os mapas do pool')
+      subcommand.setName('list').setDescription('Lista todos os mapas do pool')
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    // Check if user is admin (except for list)
     const subcommand = interaction.options.getSubcommand();
+
     if (subcommand !== 'list' && !interaction.memberPermissions?.has('Administrator')) {
       await interaction.reply({
         content: '❌ Apenas administradores podem gerenciar o pool de mapas.',
@@ -44,54 +51,59 @@ export const mapPoolCommand = {
       return;
     }
 
+    const guildId = interaction.guildId ?? '';
+
     try {
-      const guildId = interaction.guildId ?? '';
-
       if (subcommand === 'add') {
-        const map = interaction.options.getString('mapa', true);
+        const map = interaction.options.getString('mapa', true).trim();
+        const tipo = interaction.options.getString('tipo', true) as 'fixed' | 'rotation';
 
-        try {
-          await VetoService.addMapToPool(guildId, map);
-          await interaction.reply({
-            content: `✅ Mapa **${map}** adicionado ao pool.`,
-            ephemeral: true,
-          });
-        } catch (error: any) {
-          if (error.code === 'P2002') {
-            await interaction.reply({
-              content: `⚠️ O mapa **${map}** já está no pool.`,
-              ephemeral: true,
-            });
-          } else {
-            throw error;
-          }
-        }
-      } else if (subcommand === 'remove') {
-        const map = interaction.options.getString('mapa', true);
+        await VetoService.addMapToPool(guildId, map, tipo);
 
-        try {
-          await VetoService.removeMapFromPool(guildId, map);
-          await interaction.reply({
-            content: `✅ Mapa **${map}** removido do pool.`,
-            ephemeral: true,
-          });
-        } catch (error: any) {
-          if (error.code === 'P2025') {
-            await interaction.reply({
-              content: `⚠️ O mapa **${map}** não está no pool.`,
-              ephemeral: true,
-            });
-          } else {
-            throw error;
-          }
-        }
-      } else if (subcommand === 'list') {
-        const maps = await VetoService.getMapPool(guildId);
+        await interaction.reply({
+          content: `✅ Mapa **${map}** adicionado como **${tipo === 'fixed' ? 'Fixo' : 'Rotação'}**.`,
+          ephemeral: true,
+        });
+        return;
+      }
+
+      if (subcommand === 'remove') {
+        const map = interaction.options.getString('mapa', true).trim();
+
+        await VetoService.removeMapFromPool(guildId, map);
+
+        await interaction.reply({
+          content: `✅ Mapa **${map}** removido do pool.`,
+          ephemeral: true,
+        });
+        return;
+      }
+
+      if (subcommand === 'list') {
+        const maps = await prisma.mapPool.findMany({
+          where: { guildId },
+          orderBy: [{ category: 'asc' }, { map: 'asc' }],
+        });
+
+        const fixed = maps.filter((m) => m.category === 'fixed');
+        const rotation = maps.filter((m) => m.category === 'rotation');
 
         const embed = new EmbedBuilder()
           .setColor('#9B59B6')
           .setTitle('🗺️ Pool de Mapas')
-          .setDescription(maps.length > 0 ? maps.join('\n') : 'Nenhum mapa configurado')
+          .addFields(
+            {
+              name: `Fixos (${fixed.length})`,
+              value: fixed.length > 0 ? fixed.map((m) => `• ${m.map}`).join('\n') : 'Nenhum',
+            },
+            {
+              name: `Rotação (${rotation.length})`,
+              value:
+                rotation.length > 0
+                  ? rotation.map((m) => `• ${m.map}`).join('\n')
+                  : 'Nenhum',
+            }
+          )
           .setTimestamp();
 
         await interaction.reply({
@@ -99,10 +111,27 @@ export const mapPoolCommand = {
           ephemeral: true,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in map-pool command:', error);
+
+      if (error.code === 'P2002') {
+        await interaction.reply({
+          content: '⚠️ Esse mapa já está cadastrado.',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      if (error.code === 'P2025') {
+        await interaction.reply({
+          content: '⚠️ Esse mapa não está cadastrado.',
+          ephemeral: true,
+        });
+        return;
+      }
+
       await interaction.reply({
-        content: '❌ Erro ao gerenciar pool de mapas. Tente novamente.',
+        content: '❌ Erro ao gerenciar pool de mapas.',
         ephemeral: true,
       });
     }
