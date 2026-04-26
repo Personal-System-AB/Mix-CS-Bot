@@ -63,14 +63,14 @@ export class MatchService {
     ]);
 
     // 🔥 INICIAR VETO AUTOMATICO
-    const maps = await VetoService.getMatchMapPool(match.guildId, match.id);
+    const maps = VetoService.getMatchMapPool(match.id);
 
     // Se tiver só 1 mapa → já define
     if (maps.length === 1) {
       await prisma.match.update({
         where: { id: match.id },
         data: {
-          currentMap: maps[0],
+          currentMap: maps[0].name,
           status: 'live',
         },
       });

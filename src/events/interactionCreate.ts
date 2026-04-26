@@ -49,41 +49,14 @@ async function tempReply(
   }, 4000);
 }
 
-async function getPanelMessage(interaction: ButtonInteraction | StringSelectMenuInteraction, messageId?: string | null) {
+async function getPanelMessage(
+  interaction: ButtonInteraction | StringSelectMenuInteraction,
+  messageId?: string | null
+) {
   if (!messageId) return null;
   if (!interaction.channel?.isTextBased()) return null;
 
   return interaction.channel.messages.fetch(messageId).catch(() => null);
-}
-
-async function resetPanelToQueue(
-  interaction: ButtonInteraction | StringSelectMenuInteraction,
-  messageId: string
-) {
-  const queue = await QueueService.getOrCreateQueue(
-    interaction.guildId!,
-    interaction.channelId
-  );
-
-  await QueueService.clearQueue(queue.id);
-
-  await prisma.queue.update({
-    where: { id: queue.id },
-    data: {
-      isActive: true,
-      messageId,
-    },
-  });
-
-  const queueEmbed = EmbedUtils.createQueueEmbed([], QueueService.getQueueSize());
-  const queueButtons = EmbedUtils.createQueueButtonRow();
-
-  const panelMessage = await getPanelMessage(interaction, messageId);
-
-  await panelMessage?.edit({
-    embeds: [queueEmbed],
-    components: [queueButtons],
-  });
 }
 
 async function handleSlashCommand(interaction: ChatInputCommandInteraction) {
@@ -109,9 +82,7 @@ async function handleButton(interaction: ButtonInteraction) {
     await handleLeaveQueue(interaction);
   } else if (customId.startsWith('side_pick:')) {
     await handleSidePick(interaction);
-  } 
-  // 🔥 NOVO
-  else if (customId === 'reset_queue') {
+  } else if (customId === 'reset_queue') {
     await handleResetQueue(interaction);
   }
 }
@@ -262,6 +233,8 @@ async function createMatchFromQueue(
       data: { isActive: false },
     });
 
+    VetoService.resetMatch(match.id);
+
     const lobbyEmbed = EmbedUtils.createMatchLobbyEmbed(match);
     const panelMessage = await getPanelMessage(interaction, queue.messageId);
 
@@ -284,9 +257,9 @@ async function startMapVeto(
   messageId?: string | null
 ) {
   try {
-    const maps = await VetoService.getMatchMapPool(match.guildId, match.id);
+    const maps = VetoService.getMatchMapNames(match.id);
 
-    const vetoEmbed = EmbedUtils.createVetoEmbed(match, maps, 'Team A', 0)
+    const vetoEmbed = EmbedUtils.createVetoEmbed(match, maps, 'Team A', 0);
     const selectRow = EmbedUtils.createVetoMapSelectRow(maps, match.id);
 
     const panelMessage = await getPanelMessage(interaction, messageId);
@@ -323,9 +296,9 @@ async function handleMapVeto(interaction: StringSelectMenuInteraction) {
       (player) => player.discordId === interaction.user.id
     );
 
-    const isDev = process.env.NODE_ENV === 'development';
+    const isTestMode = process.env.ALLOW_TEST_COMMANDS === 'true';
 
-    if (!isPlayerFromTeam && !isDev) {
+    if (!isPlayerFromTeam && !isTestMode) {
       await tempReply(
         interaction,
         `❌ Apenas jogadores do **${vetoOrder.team}** podem banir agora.`
@@ -335,7 +308,7 @@ async function handleMapVeto(interaction: StringSelectMenuInteraction) {
 
     await VetoService.banMap(matchId, map, vetoOrder.team, bans.length);
 
-    const remainingMaps = await VetoService.getRemainingMaps(match.guildId, matchId);
+    const remainingMaps = await VetoService.getRemainingMaps(matchId);
 
     if (remainingMaps.length === 1) {
       const selectedMap = remainingMaps[0];
@@ -354,7 +327,12 @@ async function handleMapVeto(interaction: StringSelectMenuInteraction) {
     }
 
     const nextVeto = VetoService.getVetoOrder(bans.length + 1);
-    const vetoEmbed = EmbedUtils.createVetoEmbed(match, remainingMaps, nextVeto.team, bans.length + 1)
+    const vetoEmbed = EmbedUtils.createVetoEmbed(
+      match,
+      remainingMaps,
+      nextVeto.team,
+      bans.length + 1
+    );
     const selectRow = EmbedUtils.createVetoMapSelectRow(remainingMaps, matchId);
 
     await interaction.update({
@@ -401,7 +379,6 @@ async function handleResetQueue(interaction: ButtonInteraction) {
       embeds: [embed],
       components: [buttons],
     });
-
   } catch (error) {
     console.error(error);
   }
@@ -418,12 +395,12 @@ async function handleSidePick(interaction: ButtonInteraction) {
     }
 
     const isTeamA = match.teamA.some(
-      (p) => p.discordId === interaction.user.id
+      (player) => player.discordId === interaction.user.id
     );
 
-    const isDev = process.env.NODE_ENV === 'development';
+    const isTestMode = process.env.ALLOW_TEST_COMMANDS === 'true';
 
-    if (!isTeamA && !isDev) {
+    if (!isTeamA && !isTestMode) {
       await tempReply(interaction, '❌ Apenas Team A escolhe lado.');
       return;
     }
@@ -439,7 +416,6 @@ async function handleSidePick(interaction: ButtonInteraction) {
       embeds: [readyEmbed],
       components: [EmbedUtils.createReadyMatchButtonRow()],
     });
-
   } catch (error) {
     console.error(error);
     await tempReply(interaction, '❌ Erro ao escolher lado.');

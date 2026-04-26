@@ -1,4 +1,4 @@
-import { prisma } from '../db/prisma.js';
+import { MAP_POOL, ROTATION_MAP_COUNT, CsMap } from '../config/maps.js';
 
 function seededShuffle<T>(array: T[], seed: string): T[] {
   let hash = 0;
@@ -20,69 +20,67 @@ function seededShuffle<T>(array: T[], seed: string): T[] {
 }
 
 export class VetoService {
-  static async getMatchMapPool(guildId: string, matchId: string): Promise<string[]> {
-    const maps = await prisma.mapPool.findMany({
-      where: { guildId },
-      orderBy: { map: 'asc' },
-    });
+  private static bansByMatch = new Map<
+    string,
+    { mapName: string; bannedBy: 'Team A' | 'Team B'; order: number }[]
+  >();
 
-    if (maps.length === 0) {
-      return ['Mirage', 'Inferno', 'Nuke', 'Ancient', 'Anubis'];
-    }
+  static getMatchMapPool(matchId: string): CsMap[] {
+    const fixedMaps = MAP_POOL.filter((map) => map.category === 'fixed');
+    const rotationMaps = MAP_POOL.filter((map) => map.category === 'rotation');
 
-    const fixedMaps = maps
-      .filter((m) => m.category === 'fixed')
-      .map((m) => m.map);
+    const selectedRotationMaps = seededShuffle(rotationMaps, matchId).slice(
+      0,
+      ROTATION_MAP_COUNT
+    );
 
-    const rotationMaps = maps
-      .filter((m) => m.category === 'rotation')
-      .map((m) => m.map);
-
-    const randomRotationMaps = seededShuffle(rotationMaps, matchId).slice(0, 3);
-
-    return [...fixedMaps, ...randomRotationMaps];
+    return [...fixedMaps, ...selectedRotationMaps];
   }
 
-  static async addMapToPool(
-    guildId: string,
-    map: string,
-    category: 'fixed' | 'rotation' = 'fixed'
-  ) {
-    return prisma.mapPool.create({
-      data: { guildId, map, category },
-    });
+  static getMatchMapNames(matchId: string): string[] {
+    return this.getMatchMapPool(matchId).map((map) => map.name);
   }
 
-  static async removeMapFromPool(guildId: string, map: string) {
-    return prisma.mapPool.delete({
-      where: { guildId_map: { guildId, map } },
-    });
+  static getMapByName(mapName: string): CsMap | undefined {
+    return MAP_POOL.find((map) => map.name === mapName);
   }
 
   static async banMap(
     matchId: string,
-    map: string,
+    mapName: string,
     bannedBy: 'Team A' | 'Team B',
     order: number
   ) {
-    return prisma.vetoBan.create({
-      data: { matchId, map, bannedBy, order },
+    const currentBans = this.bansByMatch.get(matchId) ?? [];
+
+    currentBans.push({
+      mapName,
+      bannedBy,
+      order,
     });
+
+    this.bansByMatch.set(matchId, currentBans);
+
+    return {
+      matchId,
+      map: mapName,
+      bannedBy,
+      order,
+    };
   }
 
   static async getVetoBans(matchId: string) {
-    return prisma.vetoBan.findMany({
-      where: { matchId },
-      orderBy: { order: 'asc' },
-    });
+    return this.bansByMatch.get(matchId) ?? [];
   }
 
-  static async getRemainingMaps(guildId: string, matchId: string): Promise<string[]> {
-    const pool = await this.getMatchMapPool(guildId, matchId);
+  static async getRemainingMaps(matchId: string): Promise<string[]> {
+    const pool = this.getMatchMapPool(matchId);
     const bans = await this.getVetoBans(matchId);
-    const bannedMaps = new Set(bans.map((b) => b.map));
+    const bannedMaps = new Set(bans.map((ban) => ban.mapName));
 
-    return pool.filter((map) => !bannedMaps.has(map));
+    return pool
+      .filter((map) => !bannedMaps.has(map.name))
+      .map((map) => map.name);
   }
 
   static getVetoOrder(banCount: number): { team: 'Team A' | 'Team B' } {
@@ -90,5 +88,9 @@ export class VetoService {
     const team = round % 2 === 0 ? 'Team A' : 'Team B';
 
     return { team };
+  }
+
+  static resetMatch(matchId: string) {
+    this.bansByMatch.delete(matchId);
   }
 }

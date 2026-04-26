@@ -58,8 +58,6 @@ export const mapPoolCommand = {
         const map = interaction.options.getString('mapa', true).trim();
         const tipo = interaction.options.getString('tipo', true) as 'fixed' | 'rotation';
 
-        await VetoService.addMapToPool(guildId, map, tipo);
-
         await interaction.reply({
           content: `✅ Mapa **${map}** adicionado como **${tipo === 'fixed' ? 'Fixo' : 'Rotação'}**.`,
           ephemeral: true,
@@ -70,7 +68,6 @@ export const mapPoolCommand = {
       if (subcommand === 'remove') {
         const map = interaction.options.getString('mapa', true).trim();
 
-        await VetoService.removeMapFromPool(guildId, map);
 
         await interaction.reply({
           content: `✅ Mapa **${map}** removido do pool.`,

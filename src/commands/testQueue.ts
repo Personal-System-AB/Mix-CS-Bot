@@ -20,9 +20,9 @@ export const testQueueCommand = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    if (process.env.NODE_ENV !== 'development') {
+    if (!interaction.memberPermissions?.has('Administrator')) {
       await interaction.reply({
-        content: '❌ Só funciona em DEV.',
+        content: '❌ Apenas admins podem usar o modo teste.',
         ephemeral: true,
       });
       return;
