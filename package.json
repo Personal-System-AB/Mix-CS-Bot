@@ -13,13 +13,20 @@
     "db:studio": "prisma studio",
     "deploy:commands": "node dist/deploy-commands.js"
   },
-  "keywords": ["discord", "bot", "counter-strike", "mix", "matchmaking"],
+  "keywords": [
+    "discord",
+    "bot",
+    "counter-strike",
+    "mix",
+    "matchmaking"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^5.7.0",
     "discord.js": "^14.14.0",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "rcon-client": "^4.2.5"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

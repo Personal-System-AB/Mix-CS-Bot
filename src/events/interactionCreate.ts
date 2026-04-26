@@ -10,6 +10,7 @@ import { MatchService } from '../services/matchService.js';
 import { VetoService } from '../services/vetoService.js';
 import { EmbedUtils } from '../utils/embeds.js';
 import { prisma } from '../db/prisma.js';
+import { Cs2ServerService } from '../services/cs2ServerService.js';
 
 export const interactionCreateEvent = {
   name: 'interactionCreate',
@@ -407,8 +408,16 @@ async function handleSidePick(interaction: ButtonInteraction) {
 
     await MatchService.setMatchSide(matchId, side as 'CT' | 'TR');
 
+    if (match.map) {
+      await Cs2ServerService.prepareMatch(match.map);
+    }
+
     const updatedMatch = await MatchService.getMatch(matchId);
     if (!updatedMatch) throw new Error('Match not found');
+
+    if (updatedMatch.map) {
+      await Cs2ServerService.prepareMatch(updatedMatch.map);
+    }
 
     const readyEmbed = EmbedUtils.createMatchReadyEmbed(updatedMatch);
 

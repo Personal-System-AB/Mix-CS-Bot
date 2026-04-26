@@ -8,7 +8,7 @@ export type CsMap = {
   valveMap?: string;
 };
 
-export const ROTATION_MAP_COUNT = 4;
+export const ROTATION_MAP_COUNT = 3;
 
 export const MAP_POOL: CsMap[] = [
   // FIXOS - Workshop

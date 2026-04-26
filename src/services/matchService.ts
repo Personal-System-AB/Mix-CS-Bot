@@ -12,16 +12,77 @@ export class MatchService {
       throw new Error('Match requires exactly 10 players');
     }
 
-    // 🔥 Balanceamento simples
-    const sortedPlayers = [...players].sort((a, b) => b.elo - a.elo);
+    function getScore(p: IUser) {
+      return p.elo + (p.wins - p.losses) * 2;
+    }
 
-    const teamA: IUser[] = [];
-    const teamB: IUser[] = [];
+    function shuffle<T>(arr: T[]) {
+      return [...arr].sort(() => Math.random() - 0.5);
+    }
 
-    sortedPlayers.forEach((player, index) => {
-      if (index % 2 === 0) teamA.push(player);
-      else teamB.push(player);
-    });
+    function calcDiff(a: IUser[], b: IUser[]) {
+      const sumA = a.reduce((s, p) => s + getScore(p), 0);
+      const sumB = b.reduce((s, p) => s + getScore(p), 0);
+      return Math.abs(sumA - sumB);
+    }
+
+    function serialize(team: IUser[]) {
+      return team.map(p => p.discordId).sort().join(',');
+    }
+
+    async function getRecentMatches(guildId: string) {
+      return prisma.match.findMany({
+        where: { guildId },
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+        include: { teams: { include: { user: true } } },
+      });
+    }
+
+    const recent = await getRecentMatches(guildId);
+
+    let bestA: IUser[] = [];
+    let bestB: IUser[] = [];
+    let bestDiff = Infinity;
+
+    for (let i = 0; i < 50; i++) {
+      const shuffled = shuffle(players);
+
+      const teamA = shuffled.slice(0, 5);
+      const teamB = shuffled.slice(5, 10);
+
+      const keyA = serialize(teamA);
+      const keyB = serialize(teamB);
+
+      const repeated = recent.some(match => {
+        const a = match.teams
+          .filter(t => t.teamName === 'Team A')
+          .map(t => t.user.discordId)
+          .sort()
+          .join(',');
+
+    const b = match.teams
+      .filter(t => t.teamName === 'Team B')
+      .map(t => t.user.discordId)
+      .sort()
+      .join(',');
+
+    return (a === keyA && b === keyB) || (a === keyB && b === keyA);
+  });
+
+      if (repeated) continue;
+
+      const diff = calcDiff(teamA, teamB);
+
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestA = teamA;
+        bestB = teamB;
+      }
+    }
+
+    const teamA = bestA;
+    const teamB = bestB;
 
     // 🔗 Mapear users
     const users = await prisma.user.findMany({
