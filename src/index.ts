@@ -46,6 +46,7 @@ process.on('SIGINT', async () => {
 // Login
 async function main() {
   try {
+    console.log('DATABASE_URL:', process.env.DATABASE_URL);
     // Test database connection
     await prisma.$queryRaw`SELECT 1`;
     console.log('✅ Conectado ao banco de dados');
