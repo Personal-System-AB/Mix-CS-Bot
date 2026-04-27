@@ -32,6 +32,7 @@ export const interactionCreateEvent = {
           content: '❌ Ocorreu um erro ao processar sua interação.',
           ephemeral: true,
         }).catch(() => { });
+        setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
       }
     }
   },
@@ -69,6 +70,7 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction) {
       content: '❌ Comando não encontrado.',
       ephemeral: true,
     });
+    setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
     return;
   }
 
@@ -358,6 +360,7 @@ async function handleStartMatch(interaction: ButtonInteraction) {
       content: '❌ Apenas admins podem iniciar a partida.',
       ephemeral: true,
     });
+    setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
     return;
   }
 
@@ -367,10 +370,12 @@ async function handleStartMatch(interaction: ButtonInteraction) {
     await Cs2ServerService.startLiveMatch();
 
     await interaction.editReply('✅ Partida iniciada! GL HF.');
+    setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
   } catch (error) {
     console.error(error);
 
     await interaction.editReply('❌ Erro ao iniciar partida no servidor.');
+    setTimeout(() => interaction.deleteReply().catch(() => { }), 4000); 
   }
 }
 

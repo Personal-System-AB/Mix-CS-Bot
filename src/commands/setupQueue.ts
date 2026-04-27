@@ -13,6 +13,7 @@ export const setupQueue = {
         content: 'Este comando só funciona em servidores e canais.',
         ephemeral: true,
       });
+      setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
       return;
     }
 
@@ -22,6 +23,7 @@ export const setupQueue = {
         content: '❌ Apenas administradores podem usar este comando.',
         ephemeral: true,
       });
+      setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
       return;
     }
 
@@ -46,6 +48,7 @@ export const setupQueue = {
           content: `✅ Fila configurada! Mensagem enviada em ${message.url}`,
           ephemeral: true,
         });
+        setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
       }
 
     } catch (error) {
@@ -54,6 +57,7 @@ export const setupQueue = {
         content: '❌ Erro ao configurar a fila. Tente novamente.',
         ephemeral: true,
       });
+      setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
     }
   },
 };

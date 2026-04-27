@@ -25,6 +25,7 @@ export const testQueueCommand = {
         content: '❌ Apenas admins podem usar o modo teste.',
         ephemeral: true,
       });
+      setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
       return;
     }
 
@@ -40,6 +41,7 @@ export const testQueueCommand = {
 
       if (!queue) {
         await interaction.editReply('❌ Nenhuma fila ativa.');
+        setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
         return;
       }
 
@@ -113,9 +115,11 @@ export const testQueueCommand = {
           ? `✅ Teste criado: você e ${friend.username} ficaram em times opostos.`
           : '✅ Teste criado com você + 9 bots.'
       );
+      setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
     } catch (error) {
       console.error(error);
       await interaction.editReply('❌ Erro no modo teste.');
+      setTimeout(() => interaction.deleteReply().catch(() => { }), 4000);
     }
   },
 };
