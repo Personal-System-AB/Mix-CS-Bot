@@ -99,7 +99,11 @@ export class Cs2ServerService {
       await this.safeSend(rcon, 'mp_autoteambalance 0');
       await this.safeSend(rcon, 'mp_limitteams 0');
       await this.safeSend(rcon, 'bot_kick');
-      await this.safeSend(rcon, 'mp_restartgame 1');
+
+      // deixa esperando todos entrarem
+      await this.safeSend(rcon, 'mp_do_warmup_period 1');
+      await this.safeSend(rcon, 'mp_warmuptime 999999');
+      await this.safeSend(rcon, 'mp_warmup_start');
     } finally {
       await rcon.end().catch(() => { });
     }
@@ -109,5 +113,40 @@ export class Cs2ServerService {
       connectCommand: `password ${serverPassword}\nconnect ${host}:${port}`,
       serverPassword,
     };
+  }
+
+  static async lockServerForPlayers() {
+    const { host, port, password, serverPassword } = this.getConfig();
+
+    const rcon = await Rcon.connect({ host, port, password });
+
+    try {
+      await this.safeSend(rcon, 'sv_lan 0');
+      await this.safeSend(rcon, `sv_password ${serverPassword}`);
+
+      // segura o jogo em warmup até admin iniciar
+      await this.safeSend(rcon, 'mp_do_warmup_period 1');
+      await this.safeSend(rcon, 'mp_warmuptime 999999');
+      await this.safeSend(rcon, 'mp_warmup_start');
+
+      await this.safeSend(rcon, 'mp_autoteambalance 0');
+      await this.safeSend(rcon, 'mp_limitteams 0');
+      await this.safeSend(rcon, 'bot_kick');
+    } finally {
+      await rcon.end().catch(() => { });
+    }
+  }
+
+  static async startLiveMatch() {
+    const { host, port, password } = this.getConfig();
+
+    const rcon = await Rcon.connect({ host, port, password });
+
+    try {
+      await this.safeSend(rcon, 'mp_warmup_end');
+      await this.safeSend(rcon, 'mp_restartgame 3');
+    } finally {
+      await rcon.end().catch(() => { });
+    }
   }
 }

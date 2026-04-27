@@ -85,6 +85,8 @@ async function handleButton(interaction: ButtonInteraction) {
     await handleSidePick(interaction);
   } else if (customId === 'reset_queue') {
     await handleResetQueue(interaction);
+  } else if (customId.startsWith('start_match:')) {
+    await handleStartMatch(interaction);
   }
 }
 
@@ -349,6 +351,28 @@ async function handleMapVeto(interaction: StringSelectMenuInteraction) {
   }
 }
 
+async function handleStartMatch(interaction: ButtonInteraction) {
+  if (!interaction.memberPermissions?.has('Administrator')) {
+    await interaction.reply({
+      content: '❌ Apenas admins podem iniciar a partida.',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    await Cs2ServerService.startLiveMatch();
+
+    await interaction.editReply('✅ Partida iniciada! GL HF.');
+  } catch (error) {
+    console.error(error);
+
+    await interaction.editReply('❌ Erro ao iniciar partida no servidor.');
+  }
+}
+
 async function handleResetQueue(interaction: ButtonInteraction) {
   if (!interaction.memberPermissions?.has('Administrator')) {
     await tempReply(interaction, '❌ Apenas admins podem reiniciar.');
@@ -429,7 +453,7 @@ async function handleSidePick(interaction: ButtonInteraction) {
 
     await interaction.message.edit({
       embeds: [readyEmbed],
-      components: [EmbedUtils.createReadyMatchButtonRow()],
+      components: [EmbedUtils.createReadyMatchButtonRow(updatedMatch.id)],
     });
 
     await interaction.followUp({

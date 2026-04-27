@@ -153,8 +153,13 @@ export class EmbedUtils {
       .setTimestamp();
   }
 
-  static createReadyMatchButtonRow() {
+  static createReadyMatchButtonRow(matchId: string) {
     return new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`start_match:${matchId}`)
+        .setLabel('Iniciar Partida')
+        .setStyle(ButtonStyle.Success),
+
       new ButtonBuilder()
         .setCustomId('reset_queue')
         .setLabel('Reiniciar Fila')
