@@ -1,6 +1,7 @@
 import { prisma } from '../db/prisma.js';
 import { IUser, IMatch } from '../types/index.js';
 import { VetoService } from './vetoService.js';
+import { Cs2ServerService } from './cs2ServerService.js';
 
 export class MatchService {
   static async createMatch(
@@ -61,14 +62,14 @@ export class MatchService {
           .sort()
           .join(',');
 
-    const b = match.teams
-      .filter(t => t.teamName === 'Team B')
-      .map(t => t.user.discordId)
-      .sort()
-      .join(',');
+        const b = match.teams
+          .filter(t => t.teamName === 'Team B')
+          .map(t => t.user.discordId)
+          .sort()
+          .join(',');
 
-    return (a === keyA && b === keyB) || (a === keyB && b === keyA);
-  });
+        return (a === keyA && b === keyB) || (a === keyB && b === keyA);
+      });
 
       if (repeated) continue;
 
@@ -84,7 +85,6 @@ export class MatchService {
     const teamA = bestA;
     const teamB = bestB;
 
-    // 🔗 Mapear users
     const users = await prisma.user.findMany({
       where: {
         discordId: { in: players.map((p) => p.discordId) },
@@ -97,11 +97,10 @@ export class MatchService {
       data: {
         queueId,
         guildId,
-        status: 'veto', // 🔥 começa direto em veto
+        status: 'veto',
       },
     });
 
-    // Criar times no banco
     await Promise.all([
       ...teamA.map((p) =>
         prisma.matchTeam.create({
@@ -123,18 +122,24 @@ export class MatchService {
       ),
     ]);
 
-    // 🔥 INICIAR VETO AUTOMATICO
+    // 🔥 VETO
     const maps = VetoService.getMatchMapPool(match.id);
 
-    // Se tiver só 1 mapa → já define
+    // 🔥 AUTO START se sobrar 1 mapa
     if (maps.length === 1) {
+      const finalMap = maps[0];
+
       await prisma.match.update({
         where: { id: match.id },
         data: {
-          currentMap: maps[0].name,
+          currentMap: finalMap.name,
           status: 'live',
         },
       });
+
+      const server = await Cs2ServerService.prepareMatch(finalMap.name);
+
+      console.log('🎮 Match iniciada no CS2:', server.connectUrl);
     }
 
     return {
@@ -201,29 +206,6 @@ export class MatchService {
     await prisma.match.update({
       where: { id: matchId },
       data: { status: 'finished' },
-    });
-  }
-  static async updateMatchStatus(
-    matchId: string,
-    status: 'lobby' | 'veto' | 'live' | 'finished'
-  ) {
-    return prisma.match.update({
-      where: { id: matchId },
-      data: { status },
-    });
-  }
-
-  static async setMatchMap(matchId: string, map: string) {
-    return prisma.match.update({
-      where: { id: matchId },
-      data: { currentMap: map },
-    });
-  }
-
-  static async setMatchSide(matchId: string, side: 'CT' | 'TR') {
-    return prisma.match.update({
-      where: { id: matchId },
-      data: { sideChoice: side },
     });
   }
 }

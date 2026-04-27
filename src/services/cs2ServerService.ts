@@ -12,22 +12,13 @@ export class Cs2ServerService {
       throw new Error('CS2_SERVER_IP ou CS2_RCON_PASSWORD não configurado.');
     }
 
-    return {
-      host,
-      port,
-      password,
-      serverPassword,
-    };
+    return { host, port, password, serverPassword };
   }
 
   static async send(command: string) {
     const { host, port, password } = this.getConfig();
 
-    const rcon = await Rcon.connect({
-      host,
-      port,
-      password,
-    });
+    const rcon = await Rcon.connect({ host, port, password });
 
     try {
       return await rcon.send(command);
@@ -37,7 +28,7 @@ export class Cs2ServerService {
   }
 
   static async prepareMatch(mapName: string) {
-    const { serverPassword } = this.getConfig();
+    const { host, port, password, serverPassword } = this.getConfig();
 
     const map = VetoService.getMapByName(mapName);
 
@@ -45,24 +36,30 @@ export class Cs2ServerService {
       throw new Error(`Mapa não encontrado: ${mapName}`);
     }
 
-    await this.send(`sv_password ${serverPassword}`);
+    const rcon = await Rcon.connect({ host, port, password });
 
-    if (map.type === 'workshop') {
-      if (!map.workshopId || map.workshopId.includes('COLOQUE')) {
-        throw new Error(`Workshop ID inválido para o mapa: ${map.name}`);
+    try {
+      await rcon.send(`sv_password ${serverPassword}`);
+      await rcon.send('mp_autoteambalance 0');
+      await rcon.send('mp_limitteams 0');
+
+      if (map.type === 'workshop') {
+        if (!map.workshopId || map.workshopId.includes('COLOQUE')) {
+          throw new Error(`Workshop ID inválido para o mapa: ${map.name}`);
+        }
+
+        await rcon.send(`host_workshop_map ${map.workshopId}`);
+      } else {
+        await rcon.send(`changelevel ${map.valveMap}`);
       }
 
-      await this.send(`host_workshop_map ${map.workshopId}`);
-    } else {
-      await this.send(`changelevel ${map.valveMap}`);
+      await rcon.send('mp_restartgame 1');
+    } finally {
+      await rcon.end();
     }
 
-    await this.send('mp_autoteambalance 0');
-    await this.send('mp_limitteams 0');
-    await this.send('mp_restartgame 1');
-
     return {
-      connectUrl: `steam://connect/${process.env.CS2_SERVER_IP}:${process.env.CS2_SERVER_PORT}/${serverPassword}`,
+      connectUrl: `steam://connect/${host}:${port}/${serverPassword}`,
       serverPassword,
     };
   }
