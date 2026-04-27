@@ -424,23 +424,24 @@ async function handleSidePick(interaction: ButtonInteraction) {
     const password = process.env.CS2_SERVER_PASSWORD ?? 'mix123';
 
     const connectCommand = `connect ${host}:${port}; password ${password}`;
-    const readyEmbed = EmbedUtils.createMatchReadyEmbed(updatedMatch);
 
+    const readyEmbed = EmbedUtils.createMatchReadyEmbed(updatedMatch);
 
     await interaction.message.edit({
       embeds: [readyEmbed],
-      components: [EmbedUtils.createReadyMatchButtonRow(connectCommand)],
+      components: [EmbedUtils.createReadyMatchButtonRow()],
     });
 
     await interaction.followUp({
       content:
         `🎮 **Partida pronta!**\n\n` +
         `📋 Copie e cole no console do CS2:\n` +
-        `\`\`\`\n${connectCommand}\n\`\`\`\n\n` +
+        `\`\`\`\n${connectCommand}\n\`\`\`\n` +
         `🔐 Senha: **${password}**`,
       ephemeral: false,
     });
 
+    // RCON roda em background. NÃO usar await aqui.
     if (updatedMatch.map) {
       Cs2ServerService.prepareMatch(updatedMatch.map).catch((error) => {
         console.error('Erro preparando servidor CS2:', error);

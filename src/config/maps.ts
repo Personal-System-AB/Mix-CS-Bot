@@ -25,7 +25,7 @@ export const MAP_POOL: CsMap[] = [
   { name: 'Vertigo', category: 'fixed', type: 'valve', valveMap: 'de_vertigo' },
 
   // FIXO sem link por enquanto
-  { name: 'Warden', category: 'fixed', type: 'workshop', workshopId: 'COLOQUE_ID_WARDEN_AQUI' },
+  { name: 'Warden', category: 'fixed', type: 'workshop', workshopId: 'de_warden' },
 
   // ROTATIVOS - Workshop
   { name: 'Season', category: 'rotation', type: 'workshop', workshopId: '3073892687' },

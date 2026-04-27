@@ -153,18 +153,13 @@ export class EmbedUtils {
       .setTimestamp();
   }
 
-  static createReadyMatchButtonRow(connectUrl: string) {
+  static createReadyMatchButtonRow() {
     return new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
-        .setLabel('🎮 Entrar na Partida')
-        .setStyle(ButtonStyle.Link)
-        .setURL(connectUrl),
-
-    new ButtonBuilder()
-      .setCustomId('reset_queue')
-      .setLabel('Reiniciar Fila')
-      .setStyle(ButtonStyle.Danger)
-  );
+        .setCustomId('reset_queue')
+        .setLabel('Reiniciar Fila')
+        .setStyle(ButtonStyle.Danger)
+    );
   }
 
   static getEloName(elo: number) {
