@@ -153,7 +153,6 @@ export class EmbedUtils {
       .setTimestamp();
   }
 
-  // 🔥 NOVO BOTÃO (IMPORTANTE)
   static createReadyMatchButtonRow(connectUrl: string) {
     return new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
@@ -161,11 +160,11 @@ export class EmbedUtils {
         .setStyle(ButtonStyle.Link)
         .setURL(connectUrl),
 
-      new ButtonBuilder()
-        .setCustomId('match_ready')
-        .setLabel('✅ Confirmar')
-        .setStyle(ButtonStyle.Success)
-    );
+    new ButtonBuilder()
+      .setCustomId('reset_queue')
+      .setLabel('Reiniciar Fila')
+      .setStyle(ButtonStyle.Danger)
+  );
   }
 
   static getEloName(elo: number) {

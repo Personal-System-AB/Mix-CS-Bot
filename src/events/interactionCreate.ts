@@ -419,34 +419,38 @@ async function handleSidePick(interaction: ButtonInteraction) {
     const updatedMatch = await MatchService.getMatch(matchId);
     if (!updatedMatch) throw new Error('Match not found');
 
-    let serverInfo: { connectUrl: string; serverPassword: string } | null = null;
-
-    if (updatedMatch.map) {
-      serverInfo = await Cs2ServerService.prepareMatch(updatedMatch.map);
-    }
+    const host = process.env.CS2_SERVER_IP;
+    const port = process.env.CS2_SERVER_PORT ?? '27015';
+    const password = process.env.CS2_SERVER_PASSWORD ?? 'mix123';
+    const connectUrl = `steam://connect/${host}:${port}/${password}`;
 
     const readyEmbed = EmbedUtils.createMatchReadyEmbed(updatedMatch);
 
-
     await interaction.message.edit({
       embeds: [readyEmbed],
-      components: [EmbedUtils.createReadyMatchButtonRow(serverInfo?.connectUrl ?? '')],
+      components: [
+        EmbedUtils.createReadyMatchButtonRow(connectUrl),
+      ],
     });
 
-    if (serverInfo) {
-      await interaction.followUp({
-        content:
-          `🎮 Servidor preparado!\n` +
-          `🔗 ${serverInfo.connectUrl}\n` +
-          `🔐 Senha: **${serverInfo.serverPassword}**`,
-        ephemeral: true,
+    await interaction.followUp({
+      content:
+        `🎮 Partida pronta!\n` +
+        `🔗 ${connectUrl}\n` +
+        `🔐 Senha: **${password}**`,
+      ephemeral: true,
+    });
+
+    if (updatedMatch.map) {
+      Cs2ServerService.prepareMatch(updatedMatch.map).catch((error) => {
+        console.error('Erro preparando servidor CS2:', error);
       });
     }
   } catch (error) {
     console.error(error);
 
     await interaction.followUp({
-      content: '❌ Erro ao escolher lado ou preparar servidor.',
+      content: '❌ Erro ao escolher lado.',
       ephemeral: true,
     }).catch(() => { });
   }
