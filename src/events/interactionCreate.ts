@@ -422,23 +422,23 @@ async function handleSidePick(interaction: ButtonInteraction) {
     const host = process.env.CS2_SERVER_IP;
     const port = process.env.CS2_SERVER_PORT ?? '27015';
     const password = process.env.CS2_SERVER_PASSWORD ?? 'mix123';
-    const connectUrl = `steam://connect/${host}:${port}/${password}`;
 
+    const connectCommand = `connect ${host}:${port}; password ${password}`;
     const readyEmbed = EmbedUtils.createMatchReadyEmbed(updatedMatch);
+
 
     await interaction.message.edit({
       embeds: [readyEmbed],
-      components: [
-        EmbedUtils.createReadyMatchButtonRow(connectUrl),
-      ],
+      components: [EmbedUtils.createReadyMatchButtonRow(connectCommand)],
     });
 
     await interaction.followUp({
       content:
-        `🎮 Partida pronta!\n` +
-        `🔗 ${connectUrl}\n` +
+        `🎮 **Partida pronta!**\n\n` +
+        `📋 Copie e cole no console do CS2:\n` +
+        `\`\`\`\n${connectCommand}\n\`\`\`\n\n` +
         `🔐 Senha: **${password}**`,
-      ephemeral: true,
+      ephemeral: false,
     });
 
     if (updatedMatch.map) {
