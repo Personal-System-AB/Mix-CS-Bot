@@ -3,6 +3,7 @@ import {
   ChatInputCommandInteraction,
   ButtonInteraction,
   StringSelectMenuInteraction,
+  ChannelType,
 } from 'discord.js';
 import { commands } from '../commands/index.js';
 import { QueueService } from '../services/queueService.js';
@@ -83,8 +84,8 @@ async function handleButton(interaction: ButtonInteraction) {
     await handleLeaveQueue(interaction);
   } else if (customId.startsWith('side_pick:')) {
     await handleSidePick(interaction);
-  } else if (customId === 'reset_queue') {
-    await handleResetQueue(interaction);
+  } else if (customId === 'close_queue') {
+    await handleCloseQueue(interaction);
   } else if (customId.startsWith('start_match:')) {
     await handleStartMatch(interaction);
   }
@@ -299,9 +300,9 @@ async function handleMapVeto(interaction: StringSelectMenuInteraction) {
       (player) => player.discordId === interaction.user.id
     );
 
-    const isTestMode = process.env.ALLOW_TEST_COMMANDS === 'true';
+    const isTestUser = interaction.user.id === process.env.TEST_ADMIN_ID;
 
-    if (!isPlayerFromTeam && !isTestMode) {
+    if (!isPlayerFromTeam && !isTestUser) {
       await tempReply(
         interaction,
         `❌ Apenas jogadores do **${vetoOrder.team}** podem banir agora.`
@@ -373,40 +374,15 @@ async function handleStartMatch(interaction: ButtonInteraction) {
   }
 }
 
-async function handleResetQueue(interaction: ButtonInteraction) {
+async function handleCloseQueue(interaction: ButtonInteraction) {
   if (!interaction.memberPermissions?.has('Administrator')) {
-    await tempReply(interaction, '❌ Apenas admins podem reiniciar.');
+    await tempReply(interaction, '❌ Apenas admins podem fechar a fila.');
     return;
   }
 
-  try {
-    await interaction.deferUpdate();
+  await interaction.deferUpdate();
 
-    const queue = await QueueService.getOrCreateQueue(
-      interaction.guildId!,
-      interaction.channelId
-    );
-
-    await QueueService.clearQueue(queue.id);
-
-    await prisma.queue.update({
-      where: { id: queue.id },
-      data: {
-        isActive: true,
-        messageId: interaction.message.id,
-      },
-    });
-
-    const embed = EmbedUtils.createQueueEmbed([], QueueService.getQueueSize());
-    const buttons = EmbedUtils.createQueueButtonRow();
-
-    await interaction.message.edit({
-      embeds: [embed],
-      components: [buttons],
-    });
-  } catch (error) {
-    console.error(error);
-  }
+  await interaction.message.delete().catch(() => { });
 }
 
 async function handleSidePick(interaction: ButtonInteraction) {
@@ -428,9 +404,9 @@ async function handleSidePick(interaction: ButtonInteraction) {
       (player) => player.discordId === interaction.user.id
     );
 
-    const isTestMode = process.env.ALLOW_TEST_COMMANDS === 'true';
+    const isTestUser = interaction.user.id === process.env.TEST_ADMIN_ID;
 
-    if (!isTeamA && !isTestMode) {
+    if (!isTeamA && !isTestUser) {
       await interaction.followUp({
         content: '❌ Apenas Team A escolhe lado.',
         ephemeral: true,
@@ -456,14 +432,19 @@ async function handleSidePick(interaction: ButtonInteraction) {
       components: [EmbedUtils.createReadyMatchButtonRow(updatedMatch.id)],
     });
 
-    await interaction.followUp({
+    const followUpMessage = await interaction.followUp({
       content:
         `🎮 **Partida pronta!**\n\n` +
         `📋 Copie e cole no console do CS2:\n` +
         `\`\`\`\n${connectCommand}\n\`\`\`\n` +
         `🔐 Senha: **${password}**`,
       ephemeral: false,
+      fetchReply: true,
     });
+
+    setTimeout(() => {
+      followUpMessage.delete().catch(() => { });
+    }, 10 * 60 * 1000);
 
     // RCON roda em background. NÃO usar await aqui.
     if (updatedMatch.map) {
@@ -471,6 +452,7 @@ async function handleSidePick(interaction: ButtonInteraction) {
         console.error('Erro preparando servidor CS2:', error);
       });
     }
+    await moveTeamsToVoiceChannels(interaction, updatedMatch);
   } catch (error) {
     console.error(error);
 
@@ -478,5 +460,33 @@ async function handleSidePick(interaction: ButtonInteraction) {
       content: '❌ Erro ao escolher lado.',
       ephemeral: true,
     }).catch(() => { });
+  }
+}
+
+async function moveTeamsToVoiceChannels(interaction: ButtonInteraction, match: any) {
+  if (!interaction.guild) return;
+
+  const teamAChannel = await interaction.guild.channels.create({
+    name: `Team A - ${match.id.slice(-4)}`,
+    type: ChannelType.GuildVoice,
+  });
+
+  const teamBChannel = await interaction.guild.channels.create({
+    name: `Team B - ${match.id.slice(-4)}`,
+    type: ChannelType.GuildVoice,
+  });
+
+  for (const player of match.teamA) {
+    const member = await interaction.guild.members.fetch(player.discordId).catch(() => null);
+    if (member?.voice.channel) {
+      await member.voice.setChannel(teamAChannel).catch(() => { });
+    }
+  }
+
+  for (const player of match.teamB) {
+    const member = await interaction.guild.members.fetch(player.discordId).catch(() => null);
+    if (member?.voice.channel) {
+      await member.voice.setChannel(teamBChannel).catch(() => { });
+    }
   }
 }

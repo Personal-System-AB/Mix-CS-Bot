@@ -161,8 +161,8 @@ export class EmbedUtils {
         .setStyle(ButtonStyle.Success),
 
       new ButtonBuilder()
-        .setCustomId('reset_queue')
-        .setLabel('Reiniciar Fila')
+        .setCustomId('close_queue')
+        .setLabel('Fechar Fila')
         .setStyle(ButtonStyle.Danger)
     );
   }
