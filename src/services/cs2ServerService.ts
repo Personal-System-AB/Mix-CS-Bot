@@ -15,6 +15,10 @@ export class Cs2ServerService {
     return { host, port, password, serverPassword };
   }
 
+  private static sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   static async send(command: string) {
     const { host, port, password } = this.getConfig();
 
@@ -23,7 +27,7 @@ export class Cs2ServerService {
     try {
       return await rcon.send(command);
     } finally {
-      await rcon.end();
+      await rcon.end().catch(() => { });
     }
   }
 
@@ -36,12 +40,11 @@ export class Cs2ServerService {
       throw new Error(`Mapa não encontrado: ${mapName}`);
     }
 
-    const rcon = await Rcon.connect({ host, port, password });
+    let rcon = await Rcon.connect({ host, port, password });
 
     try {
       await rcon.send(`sv_password ${serverPassword}`);
-      await rcon.send('mp_autoteambalance 0');
-      await rcon.send('mp_limitteams 0');
+      await rcon.send('sv_lan 0');
 
       if (map.type === 'workshop') {
         if (!map.workshopId || map.workshopId.includes('COLOQUE')) {
@@ -50,16 +53,29 @@ export class Cs2ServerService {
 
         await rcon.send(`host_workshop_map ${map.workshopId}`);
       } else {
+        if (!map.valveMap) {
+          throw new Error(`Valve map inválido para o mapa: ${map.name}`);
+        }
+
         await rcon.send(`changelevel ${map.valveMap}`);
       }
+    } finally {
+      await rcon.end().catch(() => { });
+    }
 
-      // 🔥 IMPORTANTE — sempre depois do mapa
+    // Troca de mapa derruba/recarrega RCON por alguns segundos.
+    await this.sleep(8000);
+
+    rcon = await Rcon.connect({ host, port, password });
+
+    try {
       await rcon.send('sv_lan 0');
+      await rcon.send(`sv_password ${serverPassword}`);
       await rcon.send('mp_autoteambalance 0');
       await rcon.send('mp_limitteams 0');
       await rcon.send('mp_restartgame 1');
     } finally {
-      await rcon.end();
+      await rcon.end().catch(() => { });
     }
 
     return {

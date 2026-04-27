@@ -154,12 +154,17 @@ export class EmbedUtils {
   }
 
   // 🔥 NOVO BOTÃO (IMPORTANTE)
-  static createReadyMatchButtonRow() {
+  static createReadyMatchButtonRow(connectUrl: string) {
     return new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
-        .setCustomId('reset_queue')
-        .setLabel('Reiniciar Fila')
-        .setStyle(ButtonStyle.Danger)
+        .setLabel('🎮 Entrar na Partida')
+        .setStyle(ButtonStyle.Link)
+        .setURL(connectUrl),
+
+      new ButtonBuilder()
+        .setCustomId('match_ready')
+        .setLabel('✅ Confirmar')
+        .setStyle(ButtonStyle.Success)
     );
   }
 

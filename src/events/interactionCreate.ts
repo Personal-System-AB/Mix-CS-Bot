@@ -427,9 +427,10 @@ async function handleSidePick(interaction: ButtonInteraction) {
 
     const readyEmbed = EmbedUtils.createMatchReadyEmbed(updatedMatch);
 
+
     await interaction.message.edit({
       embeds: [readyEmbed],
-      components: [EmbedUtils.createReadyMatchButtonRow()],
+      components: [EmbedUtils.createReadyMatchButtonRow(serverInfo?.connectUrl ?? '')],
     });
 
     if (serverInfo) {
