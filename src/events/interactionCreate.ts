@@ -386,12 +386,17 @@ async function handleResetQueue(interaction: ButtonInteraction) {
 }
 
 async function handleSidePick(interaction: ButtonInteraction) {
+  await interaction.deferUpdate();
+
   try {
     const [, matchId, side] = interaction.customId.split(':');
 
     const match = await MatchService.getMatch(matchId);
     if (!match) {
-      await tempReply(interaction, '❌ Partida não encontrada.');
+      await interaction.followUp({
+        content: '❌ Partida não encontrada.',
+        ephemeral: true,
+      });
       return;
     }
 
@@ -402,31 +407,46 @@ async function handleSidePick(interaction: ButtonInteraction) {
     const isTestMode = process.env.ALLOW_TEST_COMMANDS === 'true';
 
     if (!isTeamA && !isTestMode) {
-      await tempReply(interaction, '❌ Apenas Team A escolhe lado.');
+      await interaction.followUp({
+        content: '❌ Apenas Team A escolhe lado.',
+        ephemeral: true,
+      });
       return;
     }
 
     await MatchService.setMatchSide(matchId, side as 'CT' | 'TR');
 
-    if (match.map) {
-      await Cs2ServerService.prepareMatch(match.map);
-    }
-
     const updatedMatch = await MatchService.getMatch(matchId);
     if (!updatedMatch) throw new Error('Match not found');
 
+    let serverInfo: { connectUrl: string; serverPassword: string } | null = null;
+
     if (updatedMatch.map) {
-      await Cs2ServerService.prepareMatch(updatedMatch.map);
+      serverInfo = await Cs2ServerService.prepareMatch(updatedMatch.map);
     }
 
     const readyEmbed = EmbedUtils.createMatchReadyEmbed(updatedMatch);
 
-    await interaction.update({
+    await interaction.message.edit({
       embeds: [readyEmbed],
       components: [EmbedUtils.createReadyMatchButtonRow()],
     });
+
+    if (serverInfo) {
+      await interaction.followUp({
+        content:
+          `🎮 Servidor preparado!\n` +
+          `🔗 ${serverInfo.connectUrl}\n` +
+          `🔐 Senha: **${serverInfo.serverPassword}**`,
+        ephemeral: true,
+      });
+    }
   } catch (error) {
     console.error(error);
-    await tempReply(interaction, '❌ Erro ao escolher lado.');
+
+    await interaction.followUp({
+      content: '❌ Erro ao escolher lado ou preparar servidor.',
+      ephemeral: true,
+    }).catch(() => { });
   }
 }
