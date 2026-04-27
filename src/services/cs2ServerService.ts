@@ -83,7 +83,7 @@ export class Cs2ServerService {
           throw new Error(`Valve map inválido para o mapa: ${selectedMap.name}`);
         }
 
-        await this.safeSend(rcon, `map ${selectedMap.valveMap}`);
+        await this.safeSend(rcon, `changelevel ${selectedMap.valveMap}`);
       }
     } finally {
       await rcon.end().catch(() => { });
