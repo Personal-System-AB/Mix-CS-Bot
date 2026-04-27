@@ -181,6 +181,30 @@ export class MatchService {
     };
   }
 
+  static async updateMatchStatus(
+    matchId: string,
+    status: 'lobby' | 'veto' | 'live' | 'finished'
+  ) {
+    return prisma.match.update({
+      where: { id: matchId },
+      data: { status },
+    });
+  }
+
+  static async setMatchMap(matchId: string, map: string) {
+    return prisma.match.update({
+      where: { id: matchId },
+      data: { currentMap: map },
+    });
+  }
+
+  static async setMatchSide(matchId: string, side: 'CT' | 'TR') {
+    return prisma.match.update({
+      where: { id: matchId },
+      data: { sideChoice: side },
+    });
+  }
+
   static async finalizeMatch(matchId: string, winner: 'Team A' | 'Team B') {
     const match = await this.getMatch(matchId);
     if (!match) throw new Error('Match not found');
