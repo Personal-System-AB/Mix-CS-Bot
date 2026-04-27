@@ -15,12 +15,13 @@ export class Cs2ServerService {
     return { host, port, password, serverPassword };
   }
 
-  static async sleep(ms: number) {
+  private static sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  static async safeSend(rcon: Rcon, command: string) {
+  private static async safeSend(rcon: Rcon, command: string) {
     try {
+      console.log(`🎮 RCON > ${command}`);
       return await rcon.send(command);
     } catch (error) {
       console.warn(`⚠️ Comando RCON falhou/foi interrompido: ${command}`);
@@ -28,18 +29,12 @@ export class Cs2ServerService {
     }
   }
 
-  static async send(command: string) {
-    const { host, port, password } = this.getConfig();
-
-    const rcon = await Rcon.connect({ host, port, password });
-
-    try {
-      return await rcon.send(command);
-    } finally {
-      await rcon.end().catch(() => { });
-    }
-  }
-  static async connectWithRetry(host: string, port: number, password: string, retries = 8) {
+  private static async connectWithRetry(
+    host: string,
+    port: number,
+    password: string,
+    retries = 10
+  ) {
     for (let i = 0; i < retries; i++) {
       try {
         return await Rcon.connect({ host, port, password });
@@ -51,55 +46,67 @@ export class Cs2ServerService {
     throw new Error('Não foi possível reconectar ao RCON depois da troca de mapa.');
   }
 
+  static async send(command: string) {
+    const { host, port, password } = this.getConfig();
+    const rcon = await Rcon.connect({ host, port, password });
+
+    try {
+      return await rcon.send(command);
+    } finally {
+      await rcon.end().catch(() => { });
+    }
+  }
+
   static async prepareMatch(mapName: string) {
     const { host, port, password, serverPassword } = this.getConfig();
 
-    const map = VetoService.getMapByName(mapName);
+    const selectedMap = VetoService.getMapByName(mapName);
 
-    if (!map) {
+    if (!selectedMap) {
       throw new Error(`Mapa não encontrado: ${mapName}`);
     }
 
     let rcon = await Rcon.connect({ host, port, password });
 
     try {
-    await this.safeSend(rcon, `sv_password ${serverPassword}`);
-    await this.safeSend(rcon, 'sv_lan 0');
+      await this.safeSend(rcon, `sv_password ${serverPassword}`);
+      await this.safeSend(rcon, 'sv_lan 0');
 
-    if (map.type === 'workshop') {
-      if (!map.workshopId || map.workshopId.includes('COLOQUE')) {
-        throw new Error(`Workshop ID inválido para o mapa: ${map.name}`);
+      if (selectedMap.type === 'workshop') {
+        if (!selectedMap.workshopId || selectedMap.workshopId.includes('COLOQUE')) {
+          throw new Error(`Workshop ID inválido para o mapa: ${selectedMap.name}`);
+        }
+
+        await this.safeSend(rcon, `host_workshop_map ${selectedMap.workshopId}`);
+      } else {
+        if (!selectedMap.valveMap) {
+          throw new Error(`Valve map inválido para o mapa: ${selectedMap.name}`);
+        }
+
+        await this.safeSend(rcon, `map ${selectedMap.valveMap}`);
       }
-
-      await this.safeSend(rcon, `host_workshop_map ${map.workshopId}`);
-    } else {
-      if (!map.valveMap) {
-        throw new Error(`Valve map inválido para o mapa: ${map.name}`);
-      }
-
-      await this.safeSend(rcon, `changelevel ${map.valveMap}`);
+    } finally {
+      await rcon.end().catch(() => { });
     }
-  } finally {
-    await rcon.end().catch(() => { });
-  }
 
-    await this.sleep(12000);
+    await this.sleep(15000);
 
     rcon = await this.connectWithRetry(host, port, password);
 
     try {
-    await this.safeSend(rcon, 'sv_lan 0');
-    await this.safeSend(rcon, `sv_password ${serverPassword}`);
-    await this.safeSend(rcon, 'mp_autoteambalance 0');
-    await this.safeSend(rcon, 'mp_limitteams 0');
-    await this.safeSend(rcon, 'bot_kick');
-    await this.safeSend(rcon, 'mp_restartgame 1');
-  } finally {
-    await rcon.end().catch(() => { });
-  }
+      await this.safeSend(rcon, 'sv_lan 0');
+      await this.safeSend(rcon, `sv_password ${serverPassword}`);
+      await this.safeSend(rcon, 'mp_autoteambalance 0');
+      await this.safeSend(rcon, 'mp_limitteams 0');
+      await this.safeSend(rcon, 'bot_kick');
+      await this.safeSend(rcon, 'mp_restartgame 1');
+    } finally {
+      await rcon.end().catch(() => { });
+    }
 
     return {
       connectUrl: `steam://connect/${host}:${port}/${serverPassword}`,
+      connectCommand: `password ${serverPassword}\nconnect ${host}:${port}`,
       serverPassword,
     };
   }
