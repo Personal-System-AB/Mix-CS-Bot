@@ -422,6 +422,7 @@ async function handleSidePick(interaction: ButtonInteraction) {
     await MatchService.setMatchSide(matchId, side as 'CT' | 'TR');
 
     const updatedMatch = await MatchService.getMatch(matchId);
+    await moveTeamsToVoiceChannels(interaction, updatedMatch);
     if (!updatedMatch) throw new Error('Match not found');
 
     const host = process.env.CS2_SERVER_IP;
@@ -471,27 +472,47 @@ async function handleSidePick(interaction: ButtonInteraction) {
 async function moveTeamsToVoiceChannels(interaction: ButtonInteraction, match: any) {
   if (!interaction.guild) return;
 
+  const parentId =
+    interaction.channel &&
+      'parentId' in interaction.channel
+      ? interaction.channel.parentId ?? undefined
+      : undefined;
+
   const teamAChannel = await interaction.guild.channels.create({
     name: `Team A - ${match.id.slice(-4)}`,
     type: ChannelType.GuildVoice,
+    parent: parentId,
   });
 
   const teamBChannel = await interaction.guild.channels.create({
     name: `Team B - ${match.id.slice(-4)}`,
     type: ChannelType.GuildVoice,
+    parent: parentId,
   });
 
   for (const player of match.teamA) {
-    const member = await interaction.guild.members.fetch(player.discordId).catch(() => null);
+    const member = await interaction.guild.members
+      .fetch(player.discordId)
+      .catch(() => null);
+
     if (member?.voice.channel) {
-      await member.voice.setChannel(teamAChannel).catch(() => { });
+      await member.voice.setChannel(teamAChannel.id).catch(() => { });
     }
   }
 
   for (const player of match.teamB) {
-    const member = await interaction.guild.members.fetch(player.discordId).catch(() => null);
+    const member = await interaction.guild.members
+      .fetch(player.discordId)
+      .catch(() => null);
+
     if (member?.voice.channel) {
-      await member.voice.setChannel(teamBChannel).catch(() => { });
+      await member.voice.setChannel(teamBChannel.id).catch(() => { });
     }
   }
+
+  // Backup: apaga depois de 2h caso o evento não apague
+  setTimeout(async () => {
+    await teamAChannel.delete().catch(() => { });
+    await teamBChannel.delete().catch(() => { });
+  }, 2 * 60 * 60 * 1000);
 }

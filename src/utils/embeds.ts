@@ -70,6 +70,14 @@ export class EmbedUtils {
   }
 
   static createVetoEmbed(match: any, maps: string[], team: string, banCount = 0) {
+    const teamA = match.teamA
+      .map((p: any) => `<@${p.discordId}> - ${this.getEloName(p.elo)}`)
+      .join('\n');
+
+    const teamB = match.teamB
+      .map((p: any) => `<@${p.discordId}> - ${this.getEloName(p.elo)}`)
+      .join('\n');
+
     return new EmbedBuilder()
       .setColor('#e74c3c')
     .setTitle('🗺️ Veto de Mapas')
@@ -78,12 +86,24 @@ export class EmbedUtils {
       `**Mapas restantes:** ${maps.length}\n` +
       `**Mapas banidos:** ${banCount}`
     )
-    .addFields({
-      name: 'Mapas disponíveis',
-      value: maps.map((m, i) => `${i + 1}. ${m}`).join('\n'),
-    })
-     .setTimestamp();
- }
+      .addFields(
+        {
+          name: '👥 Team A',
+          value: teamA || 'Nenhum jogador',
+          inline: true,
+        },
+        {
+          name: '👥 Team B',
+          value: teamB || 'Nenhum jogador',
+          inline: true,
+        },
+        {
+          name: 'Mapas disponíveis',
+          value: maps.map((m, i) => `${i + 1}. ${m}`).join('\n'),
+        }
+      )
+      .setTimestamp();
+  }
 
   static createVetoMapSelectRow(maps: string[], matchId: string) {
     return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
