@@ -53,6 +53,10 @@ export class Cs2ServerService {
         await rcon.send(`changelevel ${map.valveMap}`);
       }
 
+      // 🔥 IMPORTANTE — sempre depois do mapa
+      await rcon.send('sv_lan 0');
+      await rcon.send('mp_autoteambalance 0');
+      await rcon.send('mp_limitteams 0');
       await rcon.send('mp_restartgame 1');
     } finally {
       await rcon.end();
