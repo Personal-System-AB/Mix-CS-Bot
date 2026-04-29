@@ -422,7 +422,7 @@ async function handleSidePick(interaction: ButtonInteraction) {
     await MatchService.setMatchSide(matchId, side as 'CT' | 'TR');
 
     const updatedMatch = await MatchService.getMatch(matchId);
-    await moveTeamsToVoiceChannels(interaction, updatedMatch);
+    // await moveTeamsToVoiceChannels(interaction, updatedMatch);
     if (!updatedMatch) throw new Error('Match not found');
 
     const host = process.env.CS2_SERVER_IP;
