@@ -458,7 +458,7 @@ async function handleSidePick(interaction: ButtonInteraction) {
         console.error('Erro preparando servidor CS2:', error);
       });
     }
-    await moveTeamsToVoiceChannels(interaction, updatedMatch);
+    // await moveTeamsToVoiceChannels(interaction, updatedMatch);
   } catch (error) {
     console.error(error);
 
@@ -469,50 +469,50 @@ async function handleSidePick(interaction: ButtonInteraction) {
   }
 }
 
-async function moveTeamsToVoiceChannels(interaction: ButtonInteraction, match: any) {
-  if (!interaction.guild) return;
+// async function moveTeamsToVoiceChannels(interaction: ButtonInteraction, match: any) {
+//   if (!interaction.guild) return;
 
-  const parentId =
-    interaction.channel &&
-      'parentId' in interaction.channel
-      ? interaction.channel.parentId ?? undefined
-      : undefined;
+//   const parentId =
+//     interaction.channel &&
+//       'parentId' in interaction.channel
+//       ? interaction.channel.parentId ?? undefined
+//       : undefined;
 
-  const teamAChannel = await interaction.guild.channels.create({
-    name: `Team A - ${match.id.slice(-4)}`,
-    type: ChannelType.GuildVoice,
-    parent: parentId,
-  });
+//   const teamAChannel = await interaction.guild.channels.create({
+//     name: `Team A - ${match.id.slice(-4)}`,
+//     type: ChannelType.GuildVoice,
+//     parent: parentId,
+//   });
 
-  const teamBChannel = await interaction.guild.channels.create({
-    name: `Team B - ${match.id.slice(-4)}`,
-    type: ChannelType.GuildVoice,
-    parent: parentId,
-  });
+//   const teamBChannel = await interaction.guild.channels.create({
+//     name: `Team B - ${match.id.slice(-4)}`,
+//     type: ChannelType.GuildVoice,
+//     parent: parentId,
+//   });
 
-  for (const player of match.teamA) {
-    const member = await interaction.guild.members
-      .fetch(player.discordId)
-      .catch(() => null);
+//   for (const player of match.teamA) {
+//     const member = await interaction.guild.members
+//       .fetch(player.discordId)
+//       .catch(() => null);
 
-    if (member?.voice.channel) {
-      await member.voice.setChannel(teamAChannel.id).catch(() => { });
-    }
-  }
+//     if (member?.voice.channel) {
+//       await member.voice.setChannel(teamAChannel.id).catch(() => { });
+//     }
+//   }
 
-  for (const player of match.teamB) {
-    const member = await interaction.guild.members
-      .fetch(player.discordId)
-      .catch(() => null);
+//   for (const player of match.teamB) {
+//     const member = await interaction.guild.members
+//       .fetch(player.discordId)
+//       .catch(() => null);
 
-    if (member?.voice.channel) {
-      await member.voice.setChannel(teamBChannel.id).catch(() => { });
-    }
-  }
+//     if (member?.voice.channel) {
+//       await member.voice.setChannel(teamBChannel.id).catch(() => { });
+//     }
+//   }
 
-  // Backup: apaga depois de 2h caso o evento não apague
-  setTimeout(async () => {
-    await teamAChannel.delete().catch(() => { });
-    await teamBChannel.delete().catch(() => { });
-  }, 2 * 60 * 60 * 1000);
-}
+//   // Backup: apaga depois de 2h caso o evento não apague
+//   setTimeout(async () => {
+//     await teamAChannel.delete().catch(() => { });
+//     await teamBChannel.delete().catch(() => { });
+//   }, 2 * 60 * 60 * 1000);
+// }
